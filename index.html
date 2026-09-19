@@ -637,7 +637,7 @@ footer.site .f-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-widt
 
 <!-- ══════════════════════════════════════════════════════════════
      LIZENZBLOCK · Rechnungsbuch  (lizenz.js + lizenz-tor.js + Konfiguration)
-     Vor dem Veröffentlichen in lizenz.js den Prüfschlüssel eintragen.
+     Prüfschlüssel ist eingetragen.
      ══════════════════════════════════════════════════════════════ -->
 <script>
 /* ============================================================
@@ -729,11 +729,24 @@ footer.site .f-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-widt
 
   /* Prüft einen Schlüsseltext und gibt die Nutzdaten zurück –
      oder wirft mit einem sprechenden Grund. */
+  /* Nimmt, was eingefügt wurde, und holt den Schlüssel heraus: eine ganze
+     .wblic-Datei mit Kommentarzeilen, eine E-Mail, Zeilenumbrüche mittendrin. */
+  function saeubern(text) {
+    var roh = String(text || '');
+    var m = roh.replace(/\s+/g, '').match(/WB1\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+/);
+    return m ? m[0] : roh.replace(/\s+/g, '');
+  }
+
   function pruefeText(text) {
     return Promise.resolve().then(function () {
-      var t = String(text || '').replace(/\s+/g, '');
+      var t = saeubern(text);
       if (!t) throw new Error('leer');
-      if (t.indexOf(PRAEFIX) !== 0) throw new Error('format');
+      if (t.indexOf(PRAEFIX) !== 0) {
+        /* Der Prüfschlüssel der Lizenzstelle ist reines Base64 und beginnt
+           mit MFkw – eine Verwechslung, die ohne Hinweis ratlos macht. */
+        if (/^MFkw[A-Za-z0-9+/=]+$/.test(t)) throw new Error('pruefschluessel');
+        throw new Error('format');
+      }
       var teile = t.slice(PRAEFIX.length).split('.');
       if (teile.length !== 2) throw new Error('format');
       var daten = b64urlZuBytes(teile[0]);
@@ -786,7 +799,7 @@ footer.site .f-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-widt
 
   function speichern(text) {
     return pruefeText(text).then(function (p) {
-      if (!schreibe(LS_KEY, String(text).replace(/\s+/g, ''))) throw new Error('speicher');
+      if (!schreibe(LS_KEY, saeubern(text))) throw new Error('speicher');
       return p;
     });
   }
@@ -797,7 +810,9 @@ footer.site .f-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-widt
     keine: 'Für dieses Werkzeug liegt keine Lizenz vor.',
     'nicht-enthalten': 'Die hinterlegte Lizenz deckt dieses Werkzeug nicht ab.',
     signatur: 'Der Schlüssel ist beschädigt oder stammt nicht von der Lizenzstelle.',
-    format: 'Der Schlüssel ist unvollständig oder falsch eingefügt.',
+    format: 'Das sieht nicht nach einem Lizenzschlüssel aus – er beginnt mit „WB1.".',
+    pruefschluessel: 'Das ist der Prüfschlüssel der Lizenzstelle. Gebraucht wird hier der '
+      + 'Lizenzschlüssel aus „Lizenz ausstellen" – er beginnt mit „WB1.".',
     leer: 'Kein Schlüssel eingegeben.',
     laufzeit: 'Die Laufzeit ist abgelaufen – Speichern ist gesperrt, Lesen und Ausgabe bleiben möglich.',
     wartung: 'Diese Fassung ist neuer als dein Wartungsfenster.',
@@ -959,6 +974,7 @@ footer.site .f-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-widt
   global.WBLizenz = {
     setzePruefschluessel: function (b64) { PUB_B64 = b64; pubCache = null; },
     pruefbereit: pruefbereit,
+    saeubern: saeubern,
     stand: stand,
     pruefeText: pruefeText,
     speichern: speichern,
