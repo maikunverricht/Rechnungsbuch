@@ -732,9 +732,16 @@ footer.site .f-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-widt
   /* Nimmt, was eingefügt wurde, und holt den Schlüssel heraus: eine ganze
      .wblic-Datei mit Kommentarzeilen, eine E-Mail, Zeilenumbrüche mittendrin. */
   function saeubern(text) {
-    var roh = String(text || '');
-    var m = roh.replace(/\s+/g, '').match(/WB1\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+/);
-    return m ? m[0] : roh.replace(/\s+/g, '');
+    var roh = String(text || '').replace(/\s+/g, '');
+    /* Normalfall: der ganze Schlüssel steckt irgendwo im eingefügten Text. */
+    var m = roh.match(/WB1\.[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_]+/i);
+    if (m) return PRAEFIX + m[0].slice(4);
+    /* Vorspann unterwegs verlorengegangen – manche Felder und Zwischenablagen
+       verschlucken den Anfang. Zwei Base64url-Teile mit Punkt dazwischen sind
+       eindeutig genug; die Signatur entscheidet danach ohnehin. */
+    m = roh.match(/^(?:WB1\.?)?([A-Za-z0-9\-_]{20,})\.([A-Za-z0-9\-_]{20,})$/i);
+    if (m) return PRAEFIX + m[1] + '.' + m[2];
+    return roh;
   }
 
   function pruefeText(text) {
