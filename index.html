@@ -813,6 +813,34 @@ footer.site .f-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-widt
   function loeschen() { schreibe(LS_KEY, null); }
   function roh() { return lese(LS_KEY); }
 
+  /* ---------- Freischalten über die Adresse ----------
+     …/index.html#lizenz=WB1.…  schaltet beim Öffnen frei. Am Telefon ist das
+     der einzige Weg, der ohne Abtippen und ohne Dateiauswahl auskommt: Link
+     antippen, fertig. Der Schlüssel verschwindet danach aus der Adresszeile,
+     damit er nicht im Verlauf oder in einem Lesezeichen stehenbleibt. */
+  function ausUrl() {
+    try {
+      var m = (String(location.hash || '') + '&' + String(location.search || ''))
+              .match(/[#?&]lizenz=([^&#]+)/i);
+      return m ? decodeURIComponent(m[1]) : null;
+    } catch (e) { return null; }
+  }
+  function urlSaeubern() {
+    try {
+      var such = String(location.search || '').replace(/([?&])lizenz=[^&]*&?/i, '$1').replace(/[?&]$/, '');
+      var hash = String(location.hash || '').replace(/([#&])lizenz=[^&]*&?/i, '$1').replace(/[#&]$/, '');
+      history.replaceState(null, '', location.pathname + such + hash);
+    } catch (e) {}
+  }
+  /* Nimmt einen Schlüssel aus der Adresse an, falls einer dasteht.
+     Gibt die Nutzdaten zurück, null wenn keiner dastand – und wirft nie. */
+  function ausUrlUebernehmen() {
+    var t = ausUrl();
+    if (!t) return Promise.resolve(null);
+    return speichern(t).then(function (p) { urlSaeubern(); return p; },
+                             function ()  { urlSaeubern(); return null; });
+  }
+
   var GRUENDE = {
     keine: 'Für dieses Werkzeug liegt keine Lizenz vor.',
     'nicht-enthalten': 'Die hinterlegte Lizenz deckt dieses Werkzeug nicht ab.',
@@ -844,19 +872,25 @@ footer.site .f-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-widt
 .wbl-btn:hover{background:rgba(255,255,255,.08)}\
 .wbl-btn.wbl-pri{background:#F2B33D;border-color:#F2B33D;color:#1A1204}\
 .wbl-dlg{border:0;border-radius:16px;padding:0;max-width:560px;width:calc(100% - 32px);\
- background:#0C1118;color:#EDF0F3;box-shadow:0 24px 60px rgba(0,0,0,.6)}\
+ max-height:86svh;overflow:hidden;background:#0C1118;color:#EDF0F3;\
+ box-shadow:0 24px 60px rgba(0,0,0,.6)}\
 .wbl-dlg::backdrop{background:rgba(4,7,11,.72)}\
-.wbl-in{padding:24px}\
+.wbl-in{display:flex;flex-direction:column;max-height:86svh;padding:0}\
+.wbl-scroll{padding:24px 24px 0;overflow:auto;min-height:0;-webkit-overflow-scrolling:touch}\
 .wbl-in h2{margin:0 0 4px;font:700 20px system-ui,sans-serif}\
 .wbl-in p{margin:0 0 16px;color:#9BA6B2;font:400 14px/1.55 system-ui,sans-serif}\
 .wbl-in ul{margin:0 0 18px;padding-left:18px;color:#9BA6B2;font:400 14px/1.7 system-ui,sans-serif}\
+.wbl-was{margin:18px 0 6px!important;font:600 12px/1.4 system-ui,sans-serif!important;\
+ letter-spacing:.1em;text-transform:uppercase;color:#6B7683!important}\
 .wbl-in textarea{width:100%;box-sizing:border-box;min-height:96px;resize:vertical;\
  background:#070B11;color:#EDF0F3;border:1px solid rgba(255,255,255,.14);border-radius:10px;\
- padding:12px;font:400 12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}\
+ padding:12px;font:400 16px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}\
 .wbl-in textarea:focus{outline:2px solid #F2B33D;outline-offset:-1px}\
 .wbl-msg{margin:10px 0 0;font:500 13px system-ui,sans-serif;min-height:18px}\
 .wbl-msg.wbl-bad{color:#FF8A7A}.wbl-msg.wbl-good{color:#63D9C4}\
-.wbl-row{display:flex;gap:10px;align-items:center;margin-top:18px;flex-wrap:wrap}\
+.wbl-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;flex:none;\
+ padding:16px 24px calc(16px + env(safe-area-inset-bottom));\
+ border-top:1px solid rgba(255,255,255,.10)}\
 .wbl-row .wbl-sp{flex:1}\
 .wbl-row .wbl-txt{border:0;background:none;color:#6B7683;text-decoration:underline;\
  font:500 13px system-ui,sans-serif;cursor:pointer;padding:6px 2px}\
@@ -864,7 +898,9 @@ footer.site .f-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-widt
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .wbl-dlg{background:#fff;color:#11161C}\
  :root:not([data-theme="dark"]) .wbl-in textarea{background:#F5F7F9;color:#11161C;border-color:rgba(0,0,0,.16)}}\
 :root[data-theme="light"] .wbl-dlg{background:#fff;color:#11161C}\
-:root[data-theme="light"] .wbl-in textarea{background:#F5F7F9;color:#11161C;border-color:rgba(0,0,0,.16)}';
+:root[data-theme="light"] .wbl-in textarea{background:#F5F7F9;color:#11161C;border-color:rgba(0,0,0,.16)}\
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .wbl-row{border-color:rgba(0,0,0,.12)}}\
+:root[data-theme="light"] .wbl-row{border-color:rgba(0,0,0,.12)}';
 
   function styleEinmal() {
     if (document.getElementById('wbl-css')) return;
@@ -881,16 +917,22 @@ footer.site .f-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-widt
     d = document.createElement('dialog');
     d.id = 'wbl-dlg'; d.className = 'wbl-dlg';
     d.innerHTML =
-      '<div class="wbl-in">' +
+      '<div class="wbl-in"><div class="wbl-scroll">' +
         '<h2>' + esc(opt.titel || 'Werkzeug freischalten') + '</h2>' +
         '<p>Schlüssel einfügen oder die Lizenzdatei wählen. Der Schlüssel gilt für ' +
         'alle Werkzeuge, die er nennt – in diesem Browser.</p>' +
-        (opt.merkmale && opt.merkmale.length
-          ? '<ul>' + opt.merkmale.map(function (m) { return '<li>' + esc(m) + '</li>'; }).join('') + '</ul>'
-          : '') +
         '<textarea id="wbl-ein" spellcheck="false" autocomplete="off" ' +
+        'autocapitalize="off" autocorrect="off" ' +
         'placeholder="WB1.…"></textarea>' +
         '<p class="wbl-msg" id="wbl-msg"></p>' +
+        /* Die Merkmale stehen unter dem Feld: wer den Dialog öffnet, will
+           meist einfügen, nicht lesen. */
+        (opt.merkmale && opt.merkmale.length
+          ? '<p class="wbl-was">Was dieses Werkzeug kann</p><ul>'
+            + opt.merkmale.map(function (m) { return '<li>' + esc(m) + '</li>'; }).join('')
+            + '</ul>'
+          : '') +
+      '</div>' +
         '<div class="wbl-row">' +
           '<label class="wbl-btn">Datei wählen' +
             '<input type="file" id="wbl-datei" accept=".wblic,.txt,.json" hidden></label>' +
@@ -982,6 +1024,8 @@ footer.site .f-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-widt
     setzePruefschluessel: function (b64) { PUB_B64 = b64; pubCache = null; },
     pruefbereit: pruefbereit,
     saeubern: saeubern,
+    ausUrl: ausUrl,
+    ausUrlUebernehmen: ausUrlUebernehmen,
     stand: stand,
     pruefeText: pruefeText,
     speichern: speichern,
@@ -1196,7 +1240,14 @@ footer.site .f-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-widt
       starten();
     };
     if (!global.WBLizenz) { weiter(null); return; }
-    WBLizenz.stand(cfg.werkzeug, cfg.build).then(weiter, function () { weiter(null); });
+    var pruefen = function () {
+      WBLizenz.stand(cfg.werkzeug, cfg.build).then(weiter, function () { weiter(null); });
+    };
+    /* Steht ein Schlüssel in der Adresse, wird er zuerst übernommen. */
+    if (WBLizenz.ausUrlUebernehmen && WBLizenz.ausUrl && WBLizenz.ausUrl()) {
+      hat = true;                       // Freischaltung per Link: nie Beispieldaten
+      WBLizenz.ausUrlUebernehmen().then(pruefen, pruefen);
+    } else pruefen();
   };
 
   WBTor.lage = function () { return lage; };
