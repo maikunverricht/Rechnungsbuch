@@ -449,7 +449,7 @@ html[data-theme="light"]{
 
 <header class="nav">
   <div class="nav-in">
-    <a class="brand" href="https://maikunverricht.github.io/WerkbankUnverricht/"><span class="mark" aria-hidden="true"><svg viewBox="15 5 90 102"><path d="M26,16 V62 A34,34 0 0 0 94,62 V16" fill="none" stroke="currentColor" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="60" cy="64" r="18.5" fill="var(--amber,#F2B33D)"/></svg></span><span class="hide-sm">Werkbank&nbsp;</span><b>Rechnungsbuch</b></a>
+    <a class="brand" title="Zum Cockpit" href="https://maikunverricht.github.io/Der-Werkzeugkasten/"><span class="mark" aria-hidden="true"><svg viewBox="15 5 90 102"><path d="M26,16 V62 A34,34 0 0 0 94,62 V16" fill="none" stroke="currentColor" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/><circle cx="60" cy="64" r="18.5" fill="var(--amber,#F2B33D)"/></svg></span><span class="hide-sm">Werkbank&nbsp;</span><b>Rechnungsbuch</b></a>
     <div class="nav-r">
       <button class="filechip" id="fileChip" type="button" data-s="local" title="Datenablage">
         <span class="fdot" aria-hidden="true"></span><span id="fileName">lokal</span>
@@ -495,13 +495,7 @@ html[data-theme="light"]{
 
 <footer class="site">
   <span>© <span id="yr"></span> Maik Unverricht · Rechnungsbuch</span>
-  <span class="f-r">
-    <button class="pill sm" id="setBtn" type="button">Einstellungen</button>
-    <button class="pill sm" id="exportBtn" type="button">Export</button>
-    <button class="pill sm" id="importBtn" type="button">Import</button>
-    <button class="pill sm" id="srcBtn" type="button">Datenablage</button>
-    <a href="https://maikunverricht.github.io/WerkbankUnverricht/">Werkbank ↗</a>
-  </span>
+  <span class="f-r"><button class="pill sm" id="setBtn" type="button">Einstellungen</button><button class="pill sm" id="csvBtn" type="button" title="Rechnungsliste als CSV für das Steuerbüro">Steuerbüro</button><button class="pill sm" id="srcBtn" type="button">Datenablage</button><a href="https://maikunverricht.github.io/WerkbankUnverricht/">Werkbank ↗</a></span>
 </footer>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -1261,13 +1255,23 @@ html[data-theme="light"]{
   function fussknopf() {
     if (!cfg.fuss) return;
     var f = document.querySelector(cfg.fuss);
-    if (!f) return;
+    if (!f) {
+      /* Manche Werkzeuge rufen start() beim Parsen auf – dann steht die
+         Fußzeile noch nicht. Einmal nachfassen, sobald sie da ist. */
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', fussknopf, { once: true });
+      }
+      return;
+    }
     var b = document.createElement('button');
     b.type = 'button';
     b.className = cfg.fussKlasse || 'pill sm';
     b.textContent = lage && lage.status === 'frei' ? 'Lizenz' : 'Freischalten';
     b.addEventListener('click', dialogAuf);
-    f.insertBefore(b, f.firstChild);
+    /* Vor den letzten Eintrag – der ist in allen Werkzeugen der Verweis
+       nach draußen, und davor gehört der Lizenzknopf hin. */
+    var letzter = f.lastElementChild;
+    if (letzter) f.insertBefore(b, letzter); else f.appendChild(b);
   }
 
   /* ── Tor ───────────────────────────────────────────────── */
@@ -1709,6 +1713,68 @@ async function datei(text, name, typ, titel){
     return true;
   } catch(e){ toast('Datei konnte nicht erzeugt werden.'); return false; }
 }
+
+/* ═══════ Liste für das Steuerbüro ═══════
+   Eine Zeile je Rechnung, Semikolon getrennt, Komma als Dezimalzeichen,
+   Datum als TT.MM.JJJJ – so öffnet Excel die Datei ohne Nachfragen. Die
+   Netto- und Steuerbeträge stehen zusätzlich nach Satz getrennt, weil das
+   Steuerbüro sie so verbucht. Entwürfe bleiben draußen: sie haben keine
+   Nummer und existieren buchhalterisch nicht. */
+function csvFeld(v){
+  const s = String(v == null ? '' : v);
+  return /[";\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+const csvZahl = v => (Math.round((Number(v) || 0) * 100) / 100).toFixed(2).replace('.', ',');
+
+function steuerZeilen(){
+  const jahr = jahrF || '';
+  const rechnungen = store.rechnungen
+    .filter(r => r.festgeschrieben && (!jahr || r.datum.slice(0,4) === jahr))
+    .sort((a,b) => a.datum.localeCompare(b.datum)
+               || String(a.nummer).localeCompare(String(b.nummer), 'de', { numeric:true }));
+  const kopf = ['Rechnungsnummer','Rechnungsdatum','Fällig','Auftraggeber','Ort','USt-IdNr',
+                'Projekt','Leistung von','Leistung bis','Steuerfall',
+                'Netto gesamt','Netto 19 %','USt 19 %','Netto 7 %','USt 7 %','Netto 0 %',
+                'USt gesamt','Brutto','Bezahlt','Offen','Letzte Zahlung',
+                'Storno zu','Storniert durch'];
+  const FALL = { regel:'Regelbesteuerung', klein:'§ 19 UStG', rc:'Reverse Charge' };
+  const zeilen = rechnungen.map(r => {
+    const s = summe(r);
+    const je = satz => {
+      const g = s.gruppen.find(x => Math.abs(x.satz - satz) < 0.001);
+      return g ? g : { basis:0, steuer:0 };
+    };
+    const g19 = je(19), g7 = je(7);
+    const null0 = r.steuerfall === 'regel'
+      ? s.gruppen.filter(g => !g.satz).reduce((x,g) => x + g.basis, 0)
+      : s.netto;
+    const zahl = r.zahlungen.slice().sort((a,b) => a.datum.localeCompare(b.datum)).pop();
+    return [r.nummer, fmtDate(r.datum), fmtDate(s.faellig),
+            r.empf.name || (clientOf(r.agbId) || {}).name || '',
+            [r.empf.plz, r.empf.ort].filter(Boolean).join(' '),
+            r.empf.ustId || '', r.projektnummer || '',
+            r.lVon ? fmtDate(r.lVon) : '', r.lBis ? fmtDate(r.lBis) : '',
+            FALL[r.steuerfall] || r.steuerfall,
+            csvZahl(s.netto),
+            csvZahl(r.steuerfall === 'regel' ? g19.basis : 0), csvZahl(r.steuerfall === 'regel' ? g19.steuer : 0),
+            csvZahl(r.steuerfall === 'regel' ? g7.basis : 0),  csvZahl(r.steuerfall === 'regel' ? g7.steuer : 0),
+            csvZahl(null0),
+            csvZahl(s.steuer), csvZahl(s.brutto), csvZahl(s.bezahlt), csvZahl(s.rest),
+            zahl ? fmtDate(zahl.datum) : '',
+            r.stornoVon || '', r.stornoDurch || ''];
+  });
+  return { kopf, zeilen, jahr, anzahl: rechnungen.length };
+}
+
+async function steuerCsv(){
+  const { kopf, zeilen, jahr, anzahl } = steuerZeilen();
+  if (!anzahl) { toast('Für diese Auswahl gibt es keine festgeschriebenen Rechnungen.'); return; }
+  const text = '﻿' + [kopf, ...zeilen].map(z => z.map(csvFeld).join(';')).join('\r\n') + '\r\n';
+  const name = 'rechnungen-' + (jahr || 'alle') + '-steuerbuero.csv';
+  const ok = await datei(text, name, 'text/csv;charset=utf-8', 'Rechnungsliste');
+  if (ok) toast(anzahl + (anzahl === 1 ? ' Rechnung' : ' Rechnungen') + ' als ' + name);
+}
+
 async function exportieren(){
   const ok = await datei(JSON.stringify(store, null, 2), 'rechnungsbuch-' + heute() + '.json', 'application/json', 'Rechnungsbuch');
   if (ok) { sicherungNotiert(); toast('Export gesichert'); }
@@ -2640,6 +2706,7 @@ function setDlg(){
   E.hinweisKlein.value = e.hinweisKlein; E.hinweisRc.value = e.hinweisRc;
   $('#dlgSet').showModal();
 }
+$('#csvBtn').addEventListener('click', steuerCsv);
 $('#setBtn').addEventListener('click', setDlg);
 $('#formSet').addEventListener('submit', ev => {
   const E = ev.target.elements, e = EIN();
@@ -2710,9 +2777,9 @@ $('#fsOpen').addEventListener('click', fsOpen);
 $('#fsNew').addEventListener('click', fsNew);
 $('#fsDetach').addEventListener('click', fsDetach);
 $('#fsExport').addEventListener('click', exportieren);
-$('#exportBtn').addEventListener('click', exportieren);
+($('#exportBtn') || { addEventListener(){} }).addEventListener('click', exportieren);
 $('#fsImport').addEventListener('click', () => { $('#dlgSrc').close(); $('#ownInput').click(); });
-$('#importBtn').addEventListener('click', () => $('#ownInput').click());
+($('#importBtn') || { addEventListener(){} }).addEventListener('click', () => $('#ownInput').click());
 $('#ownInput').addEventListener('change', async ev => {
   const f = ev.target.files && ev.target.files[0]; if (!f) return;
   try {
