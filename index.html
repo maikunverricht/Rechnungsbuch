@@ -1864,7 +1864,15 @@ const FELD = {
   satz:  ['satz','stundensatz','rate','preis'],
   label: ['auftragname','projekt','projektname','auftragslabel']
 };
-const feldVon = (o, art) => { for (const k of Object.keys(o)) if (FELD[art].includes(k.toLowerCase())) return k; return null; };
+/* Gesucht wird in der Reihenfolge der Liste, nicht in der des Objekts:
+   eine Stempeluhr-Buchung trägt sowohl `auftrag` (den Namen) als auch
+   `aufId` (die ID) – und der Name steht vorne. Ohne Vorrang wurde der
+   Name als ID gelesen, und keine Buchung passte zu ihrem Auftrag. */
+const feldVon = (o, art) => {
+  const ks = Object.keys(o);
+  for (const c of FELD[art]) { const k = ks.find(x => x.toLowerCase() === c); if (k) return k; }
+  return null;
+};
 const istBuchung = o => o && typeof o === 'object' && !Array.isArray(o)
   && (feldVon(o,'start') || feldVon(o,'datum'))
   && (feldVon(o,'ende') || feldVon(o,'h') || feldVon(o,'min') || feldVon(o,'sek') || feldVon(o,'ms') || feldVon(o,'roh'));
