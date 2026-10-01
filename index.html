@@ -1616,6 +1616,7 @@ function normRech(r){
     zahlungen:(Array.isArray(r.zahlungen) ? r.zahlungen : []).filter(z => z && z.datum).map(z => ({
       id:String(z.id || uid()), datum:String(z.datum).slice(0,10), betrag:cent(num(z.betrag) ?? 0), notiz:String(z.notiz || '') })),
     absender: r.absender && typeof r.absender === 'object' ? r.absender : null,
+    empfAgb: r.empfAgb != null ? String(r.empfAgb) : null,
     angelegt:String(r.angelegt || new Date().toISOString()),
     festgeschrieben: r.festgeschrieben ? String(r.festgeschrieben) : null };
 }
@@ -1790,18 +1791,29 @@ function normAb(raw){
   d.auftraege    = (Array.isArray(raw.auftraege)    ? raw.auftraege    : []).filter(x => x && x.id);
   return d;
 }
+/* Datei und Lesekopie können auseinanderlaufen: ist das Auftragsbuch
+   ohne Dateifreigabe offen, schreibt es nur die Lesekopie, und die Datei
+   bleibt auf dem alten Stand. Darum gilt, wer jünger ist – sonst bliebe
+   ein umbenannter Auftraggeber hier unter altem Namen stehen. */
+const stempelVon = d => { const t = Date.parse(d && d.updated); return Number.isFinite(t) ? t : 0; };
+function abKopie(){ try { const raw = localStorage.getItem(LS_AB); return raw ? JSON.parse(raw) : null; } catch(e){ return null; } }
 async function ladeAb(){
+  let datei = null;
   if (FSA) {
     try {
       const h = await idb.get('wb-auftragsbuch', 'handle');
       if (h) {
         abHandle = h;
         const ok = await h.queryPermission({ mode:'readwrite' }) === 'granted' || await h.queryPermission({ mode:'read' }) === 'granted';
-        if (ok) { ab = normAb(await readHandle(h)); return ab.auftraege.length || ab.auftraggeber.length ? 'file' : 'leer'; }
+        if (ok) datei = await readHandle(h);
       }
     } catch(e){}
   }
-  try { const raw = localStorage.getItem(LS_AB); if (raw) { ab = normAb(JSON.parse(raw)); return 'local'; } } catch(e){}
+  const kopie = abKopie();
+  if (datei && (!kopie || stempelVon(datei) >= stempelVon(kopie))) {
+    ab = normAb(datei); return ab.auftraege.length || ab.auftraggeber.length ? 'file' : 'leer';
+  }
+  if (kopie) { ab = normAb(kopie); return 'local'; }
   ab = normAb(null); return 'keins';
 }
 let KUNDEN = new Map(), AUFTRAEGE = new Map();
@@ -2036,6 +2048,7 @@ function cardHTML(r){
     + '<div class="rc-top"><div style="min-width:0;flex:1">'
     + '<div class="rc-nr">' + esc(r.nummer || 'ohne Nummer') + '</div>'
     + '<div class="rc-cl">' + esc(r.empf.name || (c ? c.name : 'Ohne Empfänger')) + '</div>'
+    + (c && r.empf.name && c.name !== r.empf.name ? '<div class="rc-auf" style="color:var(--text-3)">heute: ' + esc(c.name) + '</div>' : '')
     + '<div class="rc-auf">' + esc(r.aufName || 'ohne Auftrag') + (r.projektnummer ? ' · ' + esc(r.projektnummer) : '') + '</div>'
     + '</div><span class="st" data-s="' + z + '"><i></i>' + ZTXT[z] + '</span></div>'
     + '<div class="rc-sum"><b>' + eur.format(s.brutto) + '</b><span>' + (r.steuerfall === 'regel' ? eur.format(s.netto) + ' netto' : 'ohne USt') + '</span></div>'
@@ -2089,6 +2102,12 @@ function renderDetail(scroll){
     + '<button class="pill icon-btn sm" type="button" id="closeD" aria-label="Schließen">✕</button>'
     + '</div></div>'
 
+    + (c && r.empf.name && c.name !== r.empf.name
+        ? (fest
+          ? '<div class="warnbox" style="border-color:var(--line);background:var(--glass-2)">Im Auftragsbuch heißt der Auftraggeber heute <b>' + esc(c.name) + '</b>. Auf dieser Rechnung bleibt der Name, unter dem sie gestellt wurde.</div>'
+          : '<div class="warnbox">Im Auftragsbuch heißt der Auftraggeber jetzt <b>' + esc(c.name) + '</b>. '
+            + '<button class="pill sm" type="button" id="nameUebernehmen" style="margin-left:6px">Namen übernehmen</button></div>')
+        : '')
     + (r.storniert ? '<div class="warnbox"><b>Storniert.</b> Diese Rechnung wurde durch ' + esc(r.stornoDurch || 'eine Stornorechnung') + ' aufgehoben. Sie bleibt im Bestand stehen – gelöscht wird eine festgeschriebene Rechnung nie.</div>' : '')
     + (r.stornoVon ? '<div class="warnbox"><b>Stornorechnung</b> zu ' + esc(r.stornoVon) + '. Alle Beträge sind negativ.</div>' : '')
 
@@ -2159,6 +2178,7 @@ function renderDetail(scroll){
   $('#closeD').addEventListener('click', () => { selId = null; renderGrid(); renderDetail(); });
   const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
   on('#editHead', () => rechDlg(r.id));
+  on('#nameUebernehmen', () => { if (!c || r.festgeschrieben) return; r.empf.name = c.name; r.empfAgb = c.name; save(); neu(); toast('Empfänger heißt jetzt ' + c.name); });
   on('#festBtn', festschreiben);
   on('#zahlBtn', zahlDlg);
   on('#druckBtn', () => drucken(r));
@@ -2255,8 +2275,12 @@ $('#formRech').addEventListener('submit', ev => {
   if (!E.datum.value) return fehler('Bitte ein Rechnungsdatum angeben.');
   if (E.lVon.value && E.lBis.value && E.lBis.value < E.lVon.value) return fehler('Das Ende des Leistungszeitraums liegt vor dem Beginn.');
   const o = orderOf($('#rAuf').value);
+  const kSel = clientOf($('#rAgb').value);
   const pl = {
     agbId: $('#rAgb').value, aufId: $('#rAuf').value,
+    /* Merkt sich, ob der Empfänger der Name aus dem Auftragsbuch ist –
+       dann zieht er bei einer Umbenennung mit, solange Entwurf. */
+    empfAgb: kSel && kSel.name === name ? name : null,
     aufName: o ? o.name : '', projektnummer: o ? o.projektnummer : '',
     empf:{ name, zusatz:E.eZusatz.value.trim(), strasse:E.eStrasse.value.trim(), plz:E.ePlz.value.trim(),
       ort:E.eOrt.value.trim(), land:(E.eLand.value.trim() || 'DE').toUpperCase().slice(0,2), ustId:E.eUstId.value.trim() },
@@ -2849,11 +2873,23 @@ $('meta[name="theme-color"]').content = root.getAttribute('data-theme') === 'lig
 $('#yr').textContent = new Date().getFullYear();
 addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
-function neu(){ sammleStamm(); renderSelects(); renderKPIs(); renderGrid(); renderDetail(); }
+/* Entwürfe ziehen einen umbenannten Auftraggeber mit, solange der Empfänger
+   nicht von Hand geändert wurde. Festgeschriebene Rechnungen bleiben, wie sie
+   sind – dort ist der Name Teil des Belegs. */
+function entwuerfeNachziehen(){
+  let ch = false;
+  store.rechnungen.forEach(r => {
+    if (r.festgeschrieben || !r.agbId || r.empfAgb == null) return;
+    const c = clientOf(r.agbId);
+    if (!c || c.name === r.empfAgb || r.empf.name !== r.empfAgb) return;
+    r.empf.name = c.name; r.empfAgb = c.name; ch = true;
+  });
+  if (ch) save();
+}
+function neu(){ sammleStamm(); entwuerfeNachziehen(); renderSelects(); renderKPIs(); renderGrid(); renderDetail(); }
 
 async function frisch(){
-  if (abMode === 'file' && abHandle) { try { ab = normAb(await readHandle(abHandle)); } catch(e){} }
-  else { try { const raw = localStorage.getItem(LS_AB); if (raw) { ab = normAb(JSON.parse(raw)); abMode = 'local'; } } catch(e){} }
+  abMode = await ladeAb();
   ladeZeit(); neu();
 }
 addEventListener('storage', e => { if (zeitCfg.auto === '1' && (e.key === LS_AB || e.key === LS_OWN)) frisch(); });
