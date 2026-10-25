@@ -1859,6 +1859,7 @@ const FELD = {
   sek:   ['sekunden','dauersek','seconds','sek'],
   ms:    ['ms','dauerms','millis','millisekunden'],
   roh:   ['dauer','duration','zeit','laenge'],
+  dur:   ['dur'],
   datum: ['datum','tag','date','day'],
   notiz: ['notiz','beschreibung','kommentar','text','taetigkeit','tätigkeit','titel','was','note'],
   satz:  ['satz','stundensatz','rate','preis'],
@@ -1917,6 +1918,7 @@ function ladeZeit(){
 }
 function stundenVon(o){
   let f;
+  if ((f = feldVon(o,'dur'))) { const n = num(o[f]); if (n != null && n > 0) return n / 3600; }  /* Stempeluhr: Sekunden, ohne Pausen, gerundet */
   if ((f = feldVon(o,'start')) && feldVon(o,'ende')) {
     const a = new Date(o[f]), b = new Date(o[feldVon(o,'ende')]);
     if (!isNaN(a) && !isNaN(b) && b > a) return (b - a) / 3600000;
@@ -1945,7 +1947,8 @@ const bKey = b => [b.aufId || '-', b.ts ? b.ts.toISOString().slice(0,16) : '-', 
 function buchungen(){
   return rows.map(o => {
     const fa = feldVon(o,'auf'), fg = feldVon(o,'agb'), fn = feldVon(o,'notiz'), fs = feldVon(o,'satz'), fl = feldVon(o,'label');
-    const b = { aufId: fa ? String(o[fa]) : null, agbId: fg ? String(o[fg]) : null, label: fl ? String(o[fl]) : '',
+    const b = { aufId: fa && o[fa] != null && o[fa] !== '' ? String(o[fa]) : null, agbId: fg && o[fg] != null && o[fg] !== '' ? String(o[fg]) : null, label: fl ? String(o[fl]) : '',
+      aufTxt: String(o.auftrag ?? o.auftragname ?? o.projekt ?? ''), agbTxt: String(o.auftraggeber ?? o.kunde ?? ''),
       ts: zeitpunktVon(o), h: stundenVon(o), satz: fs ? num(o[fs]) : null, notiz: fn ? String(o[fn]) : '' };
     b.key = bKey(b);
     return b;
@@ -2351,18 +2354,38 @@ $('#delPos').addEventListener('click', () => {
 });
 
 /* ── Zeit übernehmen ── */
-let zVerd = 'auftrag', zItems = [];
+let zVerd = 'auftrag', zItems = [], zStat = null;
 function zeitVorschlag(){
   const r = aktRech(); if (!r) return [];
-  const alle = buchungen().filter(b => {
-    if (r.aufId) return String(b.aufId) === String(r.aufId);
-    if (r.agbId) return String(b.agbId) === String(r.agbId);
+  const norm = t => String(t || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  const oN = orderOf(r.aufId), cN = clientOf(r.agbId);
+  const aufNamen = [r.aufName, oN && oN.name].map(norm).filter(Boolean);
+  const agbNamen = [r.empf && r.empf.name, cN && cN.name].map(norm).filter(Boolean);
+  /* Passt die Buchung zum Auftrag? Erst über die ID; fehlt sie oder kennt das
+     Auftragsbuch sie nicht (alte Buchung), gilt der Name. */
+  const passt = b => {
+    if (r.aufId) {
+      if (String(b.aufId) === String(r.aufId)) return true;
+      const fremd = !b.aufId || !AUFTRAEGE.has(String(b.aufId));
+      return fremd && !!b.aufTxt && aufNamen.includes(norm(b.aufTxt));
+    }
+    if (r.agbId) {
+      if (String(b.agbId) === String(r.agbId)) return true;
+      const fremd = !b.agbId || !KUNDEN.has(String(b.agbId));
+      return fremd && !!b.agbTxt && agbNamen.includes(norm(b.agbTxt));
+    }
     return false;
-  }).filter(b => {
+  };
+  const roh = buchungen();
+  const nachAuftrag = roh.filter(passt);
+  const alle = nachAuftrag.filter(b => {
     if (r.lVon && iso(b.ts) < r.lVon) return false;
     if (r.lBis && iso(b.ts) > r.lBis) return false;
     return true;
   });
+  zStat = { gesamt: roh.length, auftrag: nachAuftrag.length, zeitraum: alle.length,
+    von: nachAuftrag.length ? iso(nachAuftrag.reduce((m, b) => b.ts < m ? b.ts : m, nachAuftrag[0].ts)) : '',
+    bis: nachAuftrag.length ? iso(nachAuftrag.reduce((m, b) => b.ts > m ? b.ts : m, nachAuftrag[0].ts)) : '' };
   const satz = rateOf(orderOf(r.aufId)) ?? (clientOf(r.agbId)?.stundensatz ?? 0);
   const grp = new Map();
   const key = b => zVerd === 'auftrag' ? 'A'
@@ -2409,7 +2432,9 @@ function zRender(){
     + (i.dup ? '<span style="color:var(--bad)">' + i.dupN + '× schon abgerechnet</span>' : '')
     + '</span></span>'
     + '<span class="amt">' + eur.format(cent(i.h * i.satz)) + '</span></div>').join('')
-    : '<p class="hint">Für diesen Auftrag sind keine Zeitbuchungen gefunden worden.</p>';
+    : '<p class="hint">Für diesen Auftrag sind keine Zeitbuchungen gefunden worden.'
+      + (zStat ? '<br>Von ' + zStat.gesamt + ' Buchungen gehören ' + zStat.auftrag + ' zu diesem Auftrag'
+        + (zStat.auftrag && !zStat.zeitraum ? ' (' + fmtDate(zStat.von) + ' – ' + fmtDate(zStat.bis) + ') – keine davon im Leistungszeitraum. Passe den Zeitraum im Rechnungskopf an.' : '. Auftrag in der Stempeluhr prüfen: Zuordnung fehlt oder Name weicht ab.') : '') + '</p>';
   $$('#zBox [data-z]').forEach(b => b.addEventListener('change', () => { zItems[+b.dataset.z].an = b.checked; zRender(); }));
 }
 function zeitDlg(){
