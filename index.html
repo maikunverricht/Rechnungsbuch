@@ -345,6 +345,38 @@ html[data-theme="light"] .wipe{mix-blend-mode:multiply}
 
 .rc-zr{font-family:var(--mono);font-size:11.5px;color:var(--text-2);margin-top:5px;letter-spacing:.02em}
 
+/* Zahlungen (Kontoposten) + Drag & Drop */
+.ptray{margin-top:16px;border:1px dashed var(--line);border-radius:18px;padding:12px 14px;background:color-mix(in srgb,var(--glass) 70%,transparent)}
+.ptray-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ptray-hd h4{margin:0;font-size:14px;font-weight:700;letter-spacing:-.01em}
+.ptray-hd .opt{font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3)}
+.ptray-hd .rt{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.prow{display:flex;gap:10px;overflow-x:auto;padding:10px 2px 4px;scroll-snap-type:x proximity}
+.pcard{flex:0 0 232px;scroll-snap-align:start;border:1px solid var(--glass-edge);border-radius:15px;background:var(--card-face,var(--glass-2));
+  padding:11px 13px;display:flex;flex-direction:column;gap:6px;transition:border-color .2s,box-shadow .2s,transform .2s}
+.pcard.over{border-color:var(--amber);box-shadow:0 0 0 2px var(--amber);transform:translateY(-2px)}
+.pcard .pb{display:flex;align-items:baseline;gap:8px}
+.pcard .pb b{font-size:18px;letter-spacing:-.02em}
+.pcard .pb span{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-3)}
+.pcard .pp{font-size:13px;color:var(--text-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pcard .bar{height:5px;border-radius:9px;background:var(--line);overflow:hidden}
+.pcard .bar i{display:block;height:100%;background:var(--ok);border-radius:9px}
+.pcard .pf{font-family:var(--mono);font-size:11.5px;color:var(--text-2)}
+.pcard .pf b{color:var(--amber);font-weight:600}
+.pcard .pl{display:flex;flex-wrap:wrap;gap:4px}
+.pcard .pa{display:flex;gap:6px;margin-top:auto}
+.pcard .pa .pill:first-child{flex:1}
+.pdrop{font-family:var(--mono);font-size:11px;color:var(--text-3);padding:4px 2px 0}
+.rcard[draggable="true"],.iv[draggable="true"]{cursor:grab}
+.rcard.dragging,.iv.dragging{opacity:.45}
+.linkl{display:flex;flex-direction:column;gap:6px;margin-top:12px}
+.linkl button{display:flex;gap:10px;align-items:center;text-align:left;width:100%;padding:10px 13px;border-radius:12px;
+  border:1px solid var(--line);background:var(--glass);cursor:pointer;font-size:14px;color:var(--text)}
+.linkl button:hover{border-color:var(--line-hi)}
+.linkl button span:first-child{flex:1}
+.linkl button small{display:block;font-family:var(--mono);font-size:11px;color:var(--text-3)}
+.linkl h6{margin:10px 0 0;font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--text-3);font-weight:400}
+
 /* Salden je Auftraggeber */
 .sd{border:1px solid var(--line);border-radius:14px;background:var(--glass);margin-top:10px;overflow:hidden}
 .sd summary{display:flex;align-items:center;gap:12px;padding:12px 15px;cursor:pointer;list-style:none;flex-wrap:wrap}
@@ -585,6 +617,7 @@ html[data-theme="light"]{
     <span class="count" id="count"></span>
   </section>
 
+  <section class="ptray" id="trayAus" aria-label="Zahlungseingänge"></section>
   <section class="grid" id="grid"></section>
   <section class="detail" id="detail" aria-live="polite" hidden></section>
   </div>
@@ -594,6 +627,7 @@ html[data-theme="light"]{
       <label class="rowlab"><input type="checkbox" id="einNur" checked> Nur offene und Abweichungen zeigen</label>
       <button class="pill primary" id="einNeu" type="button" style="margin-left:auto">+ Eingangsrechnung</button>
     </section>
+    <section class="ptray" id="trayEin" aria-label="Überweisungen"></section>
     <div class="sdsum" id="einSum" style="margin-top:16px"></div>
     <div id="einList"></div>
   </div>
@@ -730,6 +764,31 @@ html[data-theme="light"]{
     <button class="pill primary" type="submit">Eintragen</button>
   </footer>
 </form></dialog>
+
+<!-- Zahlung (Kontoposten) -->
+<dialog id="dlgPosten"><form class="sheet" method="dialog" id="formPosten">
+  <header><h3 id="dlgPostenTitle">Zahlung</h3><button class="pill icon-btn sm" type="button" data-close aria-label="Schließen">✕</button></header>
+  <div class="body"><div class="form">
+    <div class="row r2">
+      <label>Datum<input name="datum" type="date" required></label>
+      <label>Betrag (€)<input name="betrag" type="number" step="0.01" inputmode="decimal" required></label>
+    </div>
+    <label class="wide" id="pParteiK">Von Auftraggeber<select name="parteiK"></select></label>
+    <label class="wide" id="pParteiL">An Dienstleister<input name="parteiL" list="einLief" maxlength="160" autocomplete="off"></label>
+    <label class="wide">Notiz / Verwendungszweck<input name="notiz" maxlength="200" autocomplete="off"></label>
+  </div><p class="err" id="errPosten" hidden></p></div>
+  <footer>
+    <button class="pill danger" type="button" id="postenDel" hidden>Löschen</button>
+    <button class="pill" type="button" data-close style="margin-left:auto">Abbrechen</button>
+    <button class="pill primary" type="submit" style="margin-left:0">Speichern</button>
+  </footer>
+</form></dialog>
+
+<dialog id="dlgLink"><div class="sheet">
+  <header><h3>Rechnung verknüpfen</h3><button class="pill icon-btn sm" type="button" data-close aria-label="Schließen">✕</button></header>
+  <div class="body"><p class="box" id="linkInfo" style="margin:0"></p><div class="linkl" id="linkList"></div></div>
+  <footer><button class="pill" type="button" data-close>Fertig</button></footer>
+</div></dialog>
 
 <!-- Position -->
 <dialog id="dlgPos"><form class="sheet" method="dialog" id="formPos">
@@ -1768,7 +1827,7 @@ const EINST = {
   hinweisRc:'Steuerschuldnerschaft des Leistungsempfängers – Reverse Charge.'
 };
 const LEER = { app:'werkbank-rechnungsbuch', version:1, updated:null,
-  einstellungen: structuredClone(EINST), rechnungen:[], eingang:[], abgerechnet:{} };
+  einstellungen: structuredClone(EINST), rechnungen:[], eingang:[], posten:[], abgerechnet:{} };
 let store = structuredClone(LEER);
 let ownHandle = null, ownReady = false, dirty = false, saveT = null;
 
@@ -1804,7 +1863,7 @@ function normRech(r){
     positionen:(Array.isArray(r.positionen) ? r.positionen : []).map(normPos).filter(Boolean),
     zahlungen:(Array.isArray(r.zahlungen) ? r.zahlungen : []).filter(z => z && z.datum).map(z => ({
       id:String(z.id || uid()), datum:String(z.datum).slice(0,10), betrag:cent(num(z.betrag) ?? 0), notiz:String(z.notiz || ''),
-      verrVon:String(z.verrVon || ''), verrAuf:String(z.verrAuf || '') })),
+      verrVon:String(z.verrVon || ''), verrAuf:String(z.verrAuf || ''), postenId:String(z.postenId || '') })),
     absender: r.absender && typeof r.absender === 'object' ? r.absender : null,
     empfAgb: r.empfAgb != null ? String(r.empfAgb) : null,
     angelegt:String(r.angelegt || new Date().toISOString()),
@@ -1819,8 +1878,16 @@ function normEin(e){
     text:String(e.text || ''),
     zahlungen:(Array.isArray(e.zahlungen) ? e.zahlungen : []).filter(z => z && z.datum).map(z => ({
       id:String(z.id || uid()), datum:String(z.datum).slice(0,10), betrag:cent(num(z.betrag) ?? 0), notiz:String(z.notiz || ''),
-      verrVon:String(z.verrVon || ''), verrAuf:String(z.verrAuf || '') })),
+      verrVon:String(z.verrVon || ''), verrAuf:String(z.verrAuf || ''), postenId:String(z.postenId || '') })),
     angelegt:String(e.angelegt || new Date().toISOString()) };
+}
+/* Zahlungsposten: eine Zahlung so, wie sie auf dem Konto steht – unabhängig von Rechnungen.
+   art 'kunde' = Geld von einem Auftraggeber, art 'lief' = meine Überweisung an einen Dienstleister.
+   Rechnungen werden per Drag & Drop daraufgezogen; jede Verknüpfung ist eine Rechnungszahlung mit postenId. */
+function normPosten(p){
+  if (!p || !p.id || !p.datum) return null;
+  return { id:String(p.id), art: p.art === 'lief' ? 'lief' : 'kunde', datum:String(p.datum).slice(0,10),
+    betrag:cent(num(p.betrag) ?? 0), partei:String(p.partei || '').trim(), notiz:String(p.notiz || '') };
 }
 function normStore(raw){
   const d = structuredClone(LEER);
@@ -1839,6 +1906,7 @@ function normStore(raw){
     hinweisRc: typeof e.hinweisRc === 'string' ? e.hinweisRc : EINST.hinweisRc };
   d.rechnungen = (Array.isArray(raw.rechnungen) ? raw.rechnungen : []).map(normRech).filter(Boolean);
   d.eingang = (Array.isArray(raw.eingang) ? raw.eingang : []).map(normEin).filter(Boolean);
+  d.posten = (Array.isArray(raw.posten) ? raw.posten : []).map(normPosten).filter(Boolean);
   if (raw.abgerechnet && typeof raw.abgerechnet === 'object')
     for (const k of Object.keys(raw.abgerechnet)) d.abgerechnet[String(k)] = String(raw.abgerechnet[k]);
   d.updated = raw.updated || null;
@@ -2279,6 +2347,11 @@ function salden(){
     if (Math.abs(sm.rest) > 0.005 && !r.storniert) g.rechnungen.push({ nr:r.nummer, rest:sm.rest, datum:r.datum, r });
     m.set(key, g);
   });
+  postenFreiJePartei('kunde').forEach((x, key) => {
+    const g = m.get(key) || { key, name:x.name, brutto:0, bezahlt:0, saldo:0, monate:new Map(), rechnungen:[] };
+    x.list.forEach(f => { const ym = f.datum.slice(0,7), a = g.monate.get(ym) || { ym, soll:0, ist:0 }; a.ist = cent(a.ist + f.frei); g.monate.set(ym, a); });
+    g.bezahlt = cent(g.bezahlt + x.frei); g.frei = x.frei; m.set(key, g);
+  });
   return [...m.values()].map(g => {
     g.saldo = cent(g.brutto - g.bezahlt);
     let kum = 0;
@@ -2302,7 +2375,7 @@ function renderSalden(){
     const k = g.saldo > 0.005 ? ['off', eur.format(g.saldo) + ' offen']
       : g.saldo < -0.005 ? ['zuv', eur.format(-g.saldo) + ' zu viel bezahlt'] : ['ok', 'ausgeglichen'];
     return '<details class="sd"><summary><span class="nm">' + esc(g.name)
-      + '<small>berechnet ' + eur.format(g.brutto) + ' · bezahlt ' + eur.format(g.bezahlt) + '</small></span>'
+      + '<small>berechnet ' + eur.format(g.brutto) + ' · bezahlt ' + eur.format(g.bezahlt) + (g.frei ? ' · davon ' + eur.format(g.frei) + ' noch keiner Rechnung zugeordnet' : '') + '</small></span>'
       + '<span class="sal ' + k[0] + '">' + k[1] + '</span></summary><div class="in">'
       + (kannVerr(ausVerrItems(g)) ? '<div style="margin-top:10px"><button class="pill sm" type="button" data-vk="' + esc(g.key) + '">⇄ Guthaben mit offenen Rechnungen verrechnen</button></div>' : '')
       + '<table><thead><tr><th>Monat</th><th>Berechnet</th><th>Bezahlt</th><th>Saldo kumuliert</th></tr></thead><tbody>'
@@ -2339,6 +2412,11 @@ function einLiefSalden(){
     g.brutto = cent(g.brutto + e.betrag); g.bezahlt = cent(g.bezahlt + einBez(e));
     g.items.push(e); m.set(key, g);
   });
+  postenFreiJePartei('lief').forEach((x, key) => {
+    const g = m.get(key) || { key, name:x.name, brutto:0, bezahlt:0, saldo:0, monate:new Map(), items:[] };
+    x.list.forEach(f => { const ym = f.datum.slice(0,7), a = g.monate.get(ym) || { ym, soll:0, ist:0 }; a.ist = cent(a.ist + f.frei); g.monate.set(ym, a); });
+    g.bezahlt = cent(g.bezahlt + x.frei); g.frei = x.frei; m.set(key, g);
+  });
   return [...m.values()].map(g => {
     g.saldo = cent(g.brutto - g.bezahlt);
     let kum = 0;
@@ -2351,6 +2429,7 @@ function einLiefSalden(){
 const einZu = new Set(); /* bewusst zugeklappte Lieferanten – alle anderen stehen offen */
 function renderEin(){
   if (VIEW === 'ein') renderEinKPIs();
+  renderTray('lief');
   const alle = einLiefSalden(), nur = $('#einNur').checked, h = heute();
   const zahlen = alle.reduce((s,g) => g.saldo > 0.005 ? cent(s + g.saldo) : s, 0);
   const guth = alle.reduce((s,g) => g.saldo < -0.005 ? cent(s - g.saldo) : s, 0);
@@ -2365,7 +2444,7 @@ function renderEin(){
       : g.saldo < -0.005 ? ['zuv', eur.format(-g.saldo) + ' zu viel überwiesen'] : ['ok', 'ausgeglichen'];
     const items = g.items.filter(e => !nur || Math.abs(einRest(e)) > 0.005);
     return '<details class="sd" data-k="' + esc(g.key) + '"' + (einZu.has(g.key) ? '' : ' open') + '><summary><span class="nm">' + esc(g.name)
-      + '<small>Rechnungen ' + eur.format(g.brutto) + ' · bezahlt ' + eur.format(g.bezahlt) + '</small></span>'
+      + '<small>Rechnungen ' + eur.format(g.brutto) + ' · bezahlt ' + eur.format(g.bezahlt) + (g.frei ? ' · davon ' + eur.format(g.frei) + ' noch keiner Rechnung zugeordnet' : '') + '</small></span>'
       + '<span class="sal ' + k[0] + '">' + k[1] + '</span></summary><div class="in">'
       + (kannVerr(einVerrItems(g)) ? '<div style="margin:10px 0 2px"><button class="pill sm" type="button" data-ev="' + esc(g.key) + '">⇄ Guthaben mit offenen Rechnungen verrechnen</button></div>' : '')
       + '<h6>Rechnungen</h6>'
@@ -2373,7 +2452,7 @@ function renderEin(){
           const r = einRest(e);
           const st = r < -0.005 ? ['zuv', eur.format(-r) + ' zu viel'] : r <= 0.005 ? ['ok', 'bezahlt']
             : e.faellig < h ? ['late', eur.format(r) + ' offen · überfällig'] : [einBez(e) > 0.005 ? 'teil' : '', eur.format(r) + ' offen'];
-          return '<div class="iv"><span class="t">' + esc(e.nummer || 'ohne Nummer') + ' · ' + fmtDate(e.datum)
+          return '<div class="iv"' + (r > 0.005 ? ' draggable="true" data-drag="ein:' + esc(e.id) + '"' : '') + '><span class="t">' + esc(e.nummer || 'ohne Nummer') + ' · ' + fmtDate(e.datum)
             + '<small>' + eur.format(e.betrag) + ' · fällig ' + fmtDate(e.faellig) + (e.text ? ' · ' + esc(e.text) : '') + '</small></span>'
             + '<span class="a ' + st[0] + '">' + st[1] + '</span>'
             + (e.zahlungen.some(verrInfo) ? '<div class="pz" style="flex-wrap:wrap;gap:6px">' + verrTags(e.zahlungen).join('') + '</div>' : '')
@@ -2661,6 +2740,183 @@ $('#formEinZ').addEventListener('submit', ev => {
   save(); renderEin(); toast('Zahlung erfasst');
 });
 
+/* ═══════ Zahlungen (Kontoposten) & Verknüpfen per Drag & Drop ═══════ */
+const postenRechnungen = art => art === 'kunde'
+  ? store.rechnungen.filter(r => r.festgeschrieben).map(r => ({ o:r, kind:'aus', id:r.id, nr:r.nummer, datum:r.datum,
+      partei:String(r.agbId || ''), name:r.empf.name, rest:summe(r).rest, betrag:summe(r).brutto, lVon:r.lVon, lBis:r.lBis,
+      offen:!r.storniert && !r.stornoVon }))
+  : store.eingang.map(e => ({ o:e, kind:'ein', id:e.id, nr:e.nummer, datum:e.datum, partei:e.lieferant.toLowerCase(), name:e.lieferant,
+      rest:einRest(e), betrag:e.betrag, lVon:'', lBis:'', offen:true }));
+function postenVerteilung(){
+  const m = new Map();
+  const add = (z, nr) => { if (!z.postenId) return; const v = m.get(z.postenId) || { summe:0, nrs:[] };
+    v.summe = cent(v.summe + z.betrag); v.nrs.push({ nr, betrag:z.betrag }); m.set(z.postenId, v); };
+  store.rechnungen.forEach(r => r.zahlungen.forEach(z => add(z, r.nummer || 'Entwurf')));
+  store.eingang.forEach(e => e.zahlungen.forEach(z => add(z, e.nummer || 'ohne Nr.')));
+  return m;
+}
+const postenFrei = (p, V = postenVerteilung()) => cent(p.betrag - ((V.get(p.id) || {}).summe || 0));
+const parteiKey = p => p.art === 'kunde' ? p.partei : p.partei.toLowerCase();
+const parteiName = p => p.art === 'kunde' ? ((clientOf(p.partei) || {}).name || '') : p.partei;
+/* Nicht zugeordnetes Geld je Partei – fließt in die Salden als Guthaben ein. */
+function postenFreiJePartei(art){
+  const V = postenVerteilung(), m = new Map();
+  store.posten.filter(p => p.art === art && p.partei).forEach(p => {
+    const f = postenFrei(p, V); if (Math.abs(f) <= 0.005) return;
+    const k = parteiKey(p), x = m.get(k) || { name:parteiName(p) || p.partei, frei:0, list:[] };
+    x.frei = cent(x.frei + f); x.list.push({ datum:p.datum, frei:f }); m.set(k, x);
+  });
+  return m;
+}
+
+let postenAlle = { kunde:false, lief:false };
+function renderTray(art){
+  const el = art === 'kunde' ? $('#trayAus') : $('#trayEin'); if (!el) return;
+  const V = postenVerteilung();
+  const list = store.posten.filter(p => p.art === art).sort((a,b) => b.datum.localeCompare(a.datum));
+  const sicht = list.filter(p => postenAlle[art] || Math.abs(postenFrei(p, V)) > 0.005);
+  const titel = art === 'kunde' ? 'Zahlungseingänge' : 'Überweisungen';
+  el.innerHTML = '<div class="ptray-hd"><h4>' + titel + '</h4><span class="opt">' + (sicht.length ? 'Rechnung auf eine Zahlung ziehen' : '') + '</span>'
+    + '<span class="rt">' + (list.length > sicht.length || postenAlle[art] ? '<label class="rowlab" style="font-size:12.5px"><input type="checkbox" data-palle' + (postenAlle[art] ? ' checked' : '') + '> auch vollständig verteilte</label>' : '')
+    + '<button class="pill sm' + (list.length ? '' : ' primary') + '" type="button" data-pneu>+ Zahlung</button></span></div>'
+    + (sicht.length ? '<div class="prow">' + sicht.map(p => {
+        const v = V.get(p.id) || { summe:0, nrs:[] }, frei = cent(p.betrag - v.summe);
+        const pct = p.betrag > 0 ? Math.max(0, Math.min(100, v.summe / p.betrag * 100)) : 0;
+        return '<div class="pcard" data-pid="' + esc(p.id) + '">'
+          + '<div class="pb"><b>' + eur.format(p.betrag) + '</b><span>' + fmtDate(p.datum) + '</span></div>'
+          + '<div class="pp">' + esc(parteiName(p) || 'Partei offen') + (p.notiz ? ' · ' + esc(p.notiz) : '') + '</div>'
+          + '<div class="bar"><i style="width:' + pct + '%"></i></div>'
+          + '<div class="pf">' + (Math.abs(frei) <= 0.005 ? 'vollständig verteilt' : frei > 0 ? 'frei <b>' + eur.format(frei) + '</b>' : '<b style="color:var(--bad)">' + eur.format(-frei) + ' überverteilt</b>') + '</div>'
+          + (v.nrs.length ? '<div class="pl">' + v.nrs.map(x => '<span class="tag">' + esc(x.nr) + ' · ' + eurK.format(x.betrag) + '</span>').join('') + '</div>' : '')
+          + '<div class="pa"><button class="pill sm" type="button" data-plink="' + esc(p.id) + '">⇢ Verknüpfen</button>'
+          + '<button class="pill icon-btn sm" type="button" data-pedit="' + esc(p.id) + '" aria-label="Bearbeiten">✎</button></div>'
+          + '</div>';
+      }).join('') + '</div>'
+      : '<p class="pdrop">' + (list.length ? 'Alle Zahlungen sind vollständig auf Rechnungen verteilt.' : 'Trag eine Zahlung so ein, wie sie auf dem Konto steht – dann die passenden Rechnungen darauf ziehen. Überschuss bleibt als Guthaben stehen.') + '</p>');
+}
+function renderTrays(){ renderTray('kunde'); renderTray('lief'); }
+
+function verknuepfen(pid, kind, id){
+  const p = store.posten.find(x => x.id === pid); if (!p) return;
+  const art = kind === 'aus' ? 'kunde' : 'lief';
+  if (p.art !== art) { toast(art === 'kunde' ? 'Kundenrechnungen gehören auf Zahlungseingänge.' : 'Eingangsrechnungen gehören auf Überweisungen.'); return; }
+  const inv = postenRechnungen(art).find(x => x.id === id); if (!inv) return;
+  if (!inv.offen) { toast('Stornierte Rechnungen lassen sich nicht verknüpfen.'); return; }
+  if (inv.rest <= 0.005) { toast('Rechnung ' + (inv.nr || '') + ' ist schon beglichen.'); return; }
+  const frei = postenFrei(p);
+  if (frei <= 0.005) { toast('Diese Zahlung ist schon vollständig verteilt.'); return; }
+  if (p.partei && parteiKey(p) !== inv.partei
+      && !confirm('Die Zahlung stammt von „' + parteiName(p) + '“, die Rechnung ist an „' + inv.name + '“. Trotzdem verknüpfen?')) return;
+  if (!p.partei) p.partei = kind === 'aus' ? inv.partei : inv.name;
+  const b = cent(Math.min(frei, inv.rest));
+  inv.o.zahlungen.push({ id:uid(), datum:p.datum, betrag:b, notiz:'Zahlung vom ' + fmtDate(p.datum) + (p.notiz ? ' · ' + p.notiz : ''),
+    verrVon:'', verrAuf:'', postenId:p.id });
+  save(); neu();
+  const rest = cent(frei - b), offen = cent(inv.rest - b);
+  toast(eur.format(b) + ' auf ' + (inv.nr || 'Rechnung') + ' verbucht'
+    + (offen > 0.005 ? ' · Rechnung noch ' + eur.format(offen) + ' offen' : '')
+    + (rest > 0.005 ? ' · ' + eur.format(rest) + ' bleiben frei' : ''));
+  if ($('#dlgLink').open) linkDlg(pid);
+}
+
+/* Drag & Drop: Rechnungskarten (Ausgang) und Rechnungszeilen (Eingang) sind ziehbar, Zahlungskarten Ziel. */
+let dragInv = null;
+document.addEventListener('dragstart', ev => {
+  const el = ev.target.closest && ev.target.closest('[data-drag]'); if (!el) return;
+  dragInv = el.dataset.drag; el.classList.add('dragging');
+  try { ev.dataTransfer.setData('text/plain', dragInv); ev.dataTransfer.effectAllowed = 'link'; } catch(e){}
+});
+document.addEventListener('dragend', ev => {
+  dragInv = null; $$('.dragging').forEach(x => x.classList.remove('dragging')); $$('.pcard.over').forEach(x => x.classList.remove('over'));
+});
+['#trayAus','#trayEin'].forEach(sel => {
+  const t = $(sel);
+  t.addEventListener('dragover', ev => { const c = ev.target.closest('.pcard'); if (!c || !dragInv) return;
+    ev.preventDefault(); try { ev.dataTransfer.dropEffect = 'link'; } catch(e){}
+    $$('.pcard.over').forEach(x => x !== c && x.classList.remove('over')); c.classList.add('over'); });
+  t.addEventListener('dragleave', ev => { const c = ev.target.closest('.pcard'); if (c && !c.contains(ev.relatedTarget)) c.classList.remove('over'); });
+  t.addEventListener('drop', ev => { const c = ev.target.closest('.pcard'); if (!c) return; ev.preventDefault();
+    const d = (ev.dataTransfer && ev.dataTransfer.getData('text/plain')) || dragInv; c.classList.remove('over');
+    const [kind, id] = String(d || '').split(':'); if (kind && id) verknuepfen(c.dataset.pid, kind, id); });
+  t.addEventListener('click', ev => {
+    const b = ev.target.closest('button'); 
+    if (b && b.hasAttribute('data-pneu')) postenDlg(null, sel === '#trayAus' ? 'kunde' : 'lief');
+    else if (b && b.dataset.plink) linkDlg(b.dataset.plink);
+    else if (b && b.dataset.pedit) postenDlg(b.dataset.pedit);
+  });
+  t.addEventListener('change', ev => { if (ev.target.hasAttribute('data-palle')) {
+    const art = sel === '#trayAus' ? 'kunde' : 'lief'; postenAlle[art] = ev.target.checked; renderTray(art); } });
+});
+
+/* Ohne Maus (Handy): Rechnung aus einer Liste wählen. */
+let linkPid = null;
+function linkDlg(pid){
+  const p = store.posten.find(x => x.id === pid); if (!p) return;
+  linkPid = pid;
+  const frei = postenFrei(p), k = parteiKey(p);
+  const offen = postenRechnungen(p.art).filter(x => x.offen && x.rest > 0.005).sort((a,b) => a.datum.localeCompare(b.datum));
+  const eig = offen.filter(x => !p.partei || x.partei === k), andere = offen.filter(x => p.partei && x.partei !== k);
+  const btn = x => '<button type="button" data-lk="' + x.kind + ':' + esc(x.id) + '"><span>' + esc(x.nr || 'ohne Nr.') + ' · ' + esc(x.name)
+    + '<small>' + fmtDate(x.datum) + (x.lVon || x.lBis ? ' · ' + zeitraumTxt(x.lVon, x.lBis) : '') + '</small></span><b>' + eur.format(x.rest) + '</b></button>';
+  $('#linkInfo').innerHTML = 'Zahlung vom <b>' + fmtDate(p.datum) + '</b> über <b>' + eur.format(p.betrag) + '</b>'
+    + (p.partei ? ' · ' + esc(parteiName(p)) : '') + '<br>Noch frei: <b>' + eur.format(frei) + '</b> – tippe die Rechnungen an, die damit bezahlt wurden.';
+  $('#linkList').innerHTML = frei <= 0.005 ? '<p class="hint">Diese Zahlung ist vollständig verteilt.</p>'
+    : (eig.length ? (p.partei ? '<h6>Offen bei ' + esc(parteiName(p)) + '</h6>' : '') + eig.map(btn).join('') : '<p class="hint">Keine offene Rechnung bei dieser Partei.</p>')
+      + (andere.length ? '<h6>Andere offene Rechnungen</h6>' + andere.map(btn).join('') : '');
+  if (!$('#dlgLink').open) $('#dlgLink').showModal();
+}
+$('#linkList').addEventListener('click', ev => {
+  const b = ev.target.closest('button[data-lk]'); if (!b) return;
+  const [kind, id] = b.dataset.lk.split(':'); verknuepfen(linkPid, kind, id);
+});
+
+let editPosten = null, postenArt = 'kunde';
+function postenDlg(id, art){
+  const p = id ? store.posten.find(x => x.id === id) : null;
+  editPosten = p ? p.id : null; postenArt = p ? p.art : art;
+  const E = $('#formPosten').elements;
+  $('#formPosten').reset(); $('#errPosten').hidden = true;
+  $('#dlgPostenTitle').textContent = (p ? '' : 'Neuer ') + (postenArt === 'kunde' ? 'Zahlungseingang' : 'Überweisung an Dienstleister');
+  $('#pParteiK').hidden = postenArt !== 'kunde'; $('#pParteiL').hidden = postenArt !== 'lief';
+  E.parteiK.innerHTML = '<option value="">– noch offen –</option>' + [...KUNDEN.values()].sort((a,b) => a.name.localeCompare(b.name, 'de'))
+    .map(c => '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>').join('');
+  $('#einLief').innerHTML = [...new Set(store.eingang.map(e => e.lieferant).concat(store.posten.filter(x => x.art === 'lief').map(x => x.partei)))]
+    .filter(Boolean).map(n => '<option value="' + esc(n) + '">').join('');
+  E.datum.value = p ? p.datum : heute();
+  E.betrag.value = p ? f2(p.betrag) : '';
+  E.parteiK.value = p && p.art === 'kunde' ? p.partei : (clientF || '');
+  E.parteiL.value = p && p.art === 'lief' ? p.partei : '';
+  E.notiz.value = p ? p.notiz : '';
+  $('#postenDel').hidden = !p;
+  $('#dlgPosten').showModal();
+  setTimeout(() => E.betrag.focus(), 60);
+}
+$('#postenDel').addEventListener('click', () => {
+  const p = store.posten.find(x => x.id === editPosten); if (!p) return;
+  const V = postenVerteilung().get(p.id);
+  if (!confirm('Zahlung über ' + eur.format(p.betrag) + ' löschen?' + (V ? '\n\nDie Verknüpfungen mit ' + V.nrs.map(x => x.nr).join(', ') + ' werden ebenfalls entfernt – die Rechnungen sind dann wieder offen.' : ''))) return;
+  store.rechnungen.forEach(r => { r.zahlungen = r.zahlungen.filter(z => z.postenId !== p.id); });
+  store.eingang.forEach(e => { e.zahlungen = e.zahlungen.filter(z => z.postenId !== p.id); });
+  store.posten = store.posten.filter(x => x.id !== p.id);
+  save(); $('#dlgPosten').close(); neu(); toast('Zahlung gelöscht');
+});
+$('#formPosten').addEventListener('submit', ev => {
+  const E = ev.target.elements;
+  const fehler = m => { ev.preventDefault(); $('#errPosten').textContent = m; $('#errPosten').hidden = false; };
+  const b = num(E.betrag.value);
+  if (!E.datum.value || b == null || b <= 0) return fehler('Bitte Datum und einen positiven Betrag angeben.');
+  const V = editPosten ? postenVerteilung().get(editPosten) : null;
+  if (V && b < V.summe - 0.005) return fehler('Schon ' + eur.format(V.summe) + ' sind auf Rechnungen verteilt – der Betrag darf nicht kleiner sein. Löse vorher Verknüpfungen in den Rechnungen.');
+  const pl = { datum:E.datum.value, betrag:cent(b), notiz:E.notiz.value.trim(),
+    partei: postenArt === 'kunde' ? E.parteiK.value : E.parteiL.value.trim(), art:postenArt };
+  if (editPosten) {
+    const p = store.posten.find(x => x.id === editPosten); Object.assign(p, pl);
+    /* Datum der Zahlung gilt auch für ihre Verknüpfungen */
+    [...store.rechnungen, ...store.eingang].forEach(r => r.zahlungen.forEach(z => { if (z.postenId === p.id) z.datum = p.datum; }));
+  } else store.posten.push(normPosten(Object.assign({ id:uid() }, pl)));
+  save(); neu(); toast(editPosten ? 'Zahlung gespeichert' : 'Zahlung erfasst – jetzt Rechnungen darauf ziehen');
+});
+
 /* ═══════ Ansicht ═══════ */
 let filter = 'offen', query = '', clientF = '', jahrF = '', selId = null;
 let LISTE = [];
@@ -2720,7 +2976,8 @@ function cardHTML(r){
   if (r.steuerfall === 'rc') tags.push('<span class="tag info">Reverse Charge</span>');
   if (r.steuerfall === 'klein') tags.push('<span class="tag">§ 19</span>');
   if (r.leitweg) tags.push('<span class="tag info">Leitweg</span>');
-  return '<article class="rcard" data-id="' + esc(r.id) + '" style="--acc:' + ACC[z] + '" aria-current="' + (selId === r.id) + '" tabindex="0" role="button">'
+  const ziehbar = r.festgeschrieben && !r.storniert && !r.stornoVon && s.rest > 0.005;
+  return '<article class="rcard" data-id="' + esc(r.id) + '"' + (ziehbar ? ' draggable="true" data-drag="aus:' + esc(r.id) + '"' : '') + ' style="--acc:' + ACC[z] + '" aria-current="' + (selId === r.id) + '" tabindex="0" role="button">'
     + '<div class="rc-top"><div style="min-width:0;flex:1">'
     + '<div class="rc-nr">' + esc(r.nummer || 'ohne Nummer') + '</div>'
     + '<div class="rc-cl">' + esc(r.empf.name || (c ? c.name : 'Ohne Empfänger')) + '</div>'
@@ -3601,7 +3858,7 @@ function entwuerfeNachziehen(){
   });
   if (ch) save();
 }
-function neu(){ sammleStamm(); entwuerfeNachziehen(); renderSelects(); renderKPIs(); renderGrid(); renderDetail(); if (VIEW === 'ein') renderEin(); }
+function neu(){ sammleStamm(); entwuerfeNachziehen(); renderSelects(); renderKPIs(); renderGrid(); renderDetail(); renderTray('kunde'); if (VIEW === 'ein') renderEin(); }
 
 async function frisch(){
   abMode = await ladeAb();
