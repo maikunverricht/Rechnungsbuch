@@ -648,7 +648,8 @@ html[data-theme="light"]{
   <div id="einView" hidden>
     <section class="tools" aria-label="Eingangsrechnungen">
       <label class="rowlab"><input type="checkbox" id="einNur" checked> Nur offene und Abweichungen zeigen</label>
-      <button class="pill primary" id="einNeu" type="button" style="margin-left:auto">+ Eingangsrechnung</button>
+      <button class="pill" id="szBtn" type="button" style="margin-left:auto" title="Stundenzettel (z. B. Stempeluhr-Export, JSON oder CSV) als Eingangsrechnung einlesen">⇪ Stundenzettel einlesen</button>
+      <button class="pill primary" id="einNeu" type="button">+ Eingangsrechnung</button>
     </section>
     <section class="ptray" id="trayEin" aria-label="Überweisungen"></section>
     <div class="sdsum" id="einSum" style="margin-top:16px"></div>
@@ -813,6 +814,32 @@ html[data-theme="light"]{
   <footer><button class="pill" type="button" data-close>Fertig</button></footer>
 </div></dialog>
 
+<!-- Stundenzettel einlesen -->
+<dialog id="dlgSZ"><form class="sheet" method="dialog" id="formSZ">
+  <header><h3>Stundenzettel einlesen</h3><button class="pill icon-btn sm" type="button" data-close aria-label="Schließen">✕</button></header>
+  <div class="body">
+    <p class="box" id="szInfo" style="margin:0 0 14px"></p>
+    <div class="form">
+      <label class="wide">Dienstleister<input name="lieferant" list="einLief" maxlength="160" autocomplete="off" required></label>
+      <div class="row r3" style="grid-template-columns:1fr 1fr 1fr">
+        <label>Stundensatz (€ netto)<input name="satz" type="number" step="0.01" min="0" inputmode="decimal"></label>
+        <label>USt (%)<input name="ust" type="number" step="1" min="0" max="30" inputmode="decimal"></label>
+        <label>Zahlungsziel (Tage)<input name="ziel" type="number" step="1" min="0" max="180" inputmode="numeric"></label>
+      </div>
+      <label class="wide">Abrechnung<select name="gruppe">
+        <option value="monat">je Monat eine Eingangsrechnung</option>
+        <option value="gesamt">alles in einer Eingangsrechnung</option>
+      </select></label>
+    </div>
+    <div class="sd" style="margin-top:14px"><div class="in" style="border-top:0" id="szPrev"></div></div>
+    <p class="err" id="errSZ" hidden></p>
+  </div>
+  <footer>
+    <button class="pill" type="button" data-close>Abbrechen</button>
+    <button class="pill primary" type="submit">Übernehmen</button>
+  </footer>
+</form></dialog>
+
 <!-- Position -->
 <dialog id="dlgPos"><form class="sheet" method="dialog" id="formPos">
   <header><h3 id="dlgPosTitle">Position</h3><button class="pill icon-btn sm" type="button" data-close aria-label="Schließen">✕</button></header>
@@ -966,6 +993,7 @@ html[data-theme="light"]{
 </div></dialog>
 
 <input type="file" id="ownInput" accept=".json,application/json,text/json,text/plain" hidden>
+<input type="file" id="szInput" accept=".json,.csv,.txt,application/json,text/csv,text/plain" hidden>
 <input type="file" id="zeitInput" accept=".json,application/json,text/json,text/plain" hidden>
 
 <div class="printpage" id="printPage"></div>
@@ -1902,6 +1930,9 @@ function normEin(e){
     zahlungen:(Array.isArray(e.zahlungen) ? e.zahlungen : []).filter(z => z && z.datum).map(z => ({
       id:String(z.id || uid()), datum:String(z.datum).slice(0,10), betrag:cent(num(z.betrag) ?? 0), notiz:String(z.notiz || ''),
       verrVon:String(z.verrVon || ''), verrAuf:String(z.verrAuf || ''), postenId:String(z.postenId || '') })),
+    std: num(e.std) ? cent(num(e.std)) : 0, satz: num(e.satz) ?? 0, ustSatz: num(e.ustSatz) ?? 0,
+    lVon: dd(e.lVon), lBis: dd(e.lBis), keys: Array.isArray(e.keys) ? e.keys.map(String) : [],
+    quelle: String(e.quelle || ''),
     angelegt:String(e.angelegt || new Date().toISOString()) };
 }
 /* Zahlungsposten: eine Zahlung so, wie sie auf dem Konto steht – unabhängig von Rechnungen.
@@ -2315,7 +2346,7 @@ function verrTags(zahlungen){
 const MON = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 function zeitraumTxt(von, bis){
   if (!von && !bis) return '';
-  if (!von || !bis) return fmtDate(von || bis);
+  if (!von || !bis || von === bis) return fmtDate(von || bis);
   const ende = d => plus(d, 1).slice(8,10) === '01';
   if (von.slice(0,7) === bis.slice(0,7) && von.slice(8,10) === '01' && ende(bis)) return MON[+von.slice(5,7) - 1] + ' ' + von.slice(0,4);
   if (von.slice(8,10) === '01' && ende(bis)) return MON[+von.slice(5,7) - 1] + (von.slice(0,4) !== bis.slice(0,4) ? ' ' + von.slice(0,4) : '') + ' – ' + MON[+bis.slice(5,7) - 1] + ' ' + bis.slice(0,4);
@@ -2470,6 +2501,7 @@ function renderEin(){
     return '<details class="sd" data-k="' + esc(g.key) + '"' + (einZu.has(g.key) ? '' : ' open') + '><summary><span class="nm">' + esc(g.name)
       + '<small>Rechnungen ' + eur.format(g.brutto) + ' · bezahlt ' + eur.format(g.bezahlt) + (g.frei ? ' · davon ' + eur.format(g.frei) + ' noch keiner Rechnung zugeordnet' : '') + '</small></span>'
       + '<span class="sal ' + k[0] + '">' + k[1] + '</span></summary><div class="in">'
+      + (g.frei > 0.005 && g.items.some(e => einRest(e) > 0.005) ? '<div style="margin:10px 0 2px"><button class="pill sm" type="button" data-eauto="' + esc(g.key) + '">⇢ ' + eur.format(g.frei) + ' freie Überweisungen zuordnen (älteste Rechnung zuerst)</button></div>' : '')
       + (kannVerr(einVerrItems(g)) ? '<div style="margin:10px 0 2px"><button class="pill sm" type="button" data-ev="' + esc(g.key) + '">⇄ Guthaben mit offenen Rechnungen verrechnen</button></div>' : '')
       + '<h6>Rechnungen</h6>'
       + items.map(e => {
@@ -2477,7 +2509,11 @@ function renderEin(){
           const st = r < -0.005 ? ['zuv', eur.format(-r) + ' zu viel'] : r <= 0.005 ? ['ok', 'bezahlt']
             : e.faellig < h ? ['late', eur.format(r) + ' offen · überfällig'] : [einBez(e) > 0.005 ? 'teil' : '', eur.format(r) + ' offen'];
           return '<div class="iv"' + (r > 0.005 ? ' draggable="true" data-drag="ein:' + esc(e.id) + '"' : '') + '><span class="t">' + esc(e.nummer || 'ohne Nummer') + ' · ' + fmtDate(e.datum)
-            + '<small>' + eur.format(e.betrag) + ' · fällig ' + fmtDate(e.faellig) + (e.text ? ' · ' + esc(e.text) : '') + '</small></span>'
+            + '<small>' + eur.format(e.betrag) + ' · fällig ' + fmtDate(e.faellig) + (e.lVon ? ' · ◷ ' + zeitraumTxt(e.lVon, e.lBis) : '') + (e.text ? ' · ' + esc(e.text) : '') + '</small>'
+            + (e.std > 0 ? (() => { const g = Math.max(0, Math.min(e.std, e.betrag ? e.std * einBez(e) / e.betrag : 0));
+                return '<small>gedeckt <b style="color:var(--ok)">' + dec1.format(cent(g)) + '</b> von ' + dec1.format(e.std) + ' Std.'
+                  + (e.std - g > 0.005 ? ' · offen <b style="color:var(--warn)">' + dec1.format(cent(e.std - g)) + ' Std.</b>' : '') + '</small>'; })() : '')
+            + '</span>'
             + '<span class="a ' + st[0] + '">' + st[1] + '</span>'
             + (e.zahlungen.some(verrInfo) ? '<div class="pz" style="flex-wrap:wrap;gap:6px">' + verrTags(e.zahlungen).join('') + '</div>' : '')
             + '<button class="pill sm" type="button" data-ez="' + esc(e.id) + '">+ Zahlung</button>'
@@ -2681,6 +2717,11 @@ $('#einList').addEventListener('toggle', ev => {
 }, true);
 $('#einList').addEventListener('click', ev => {
   const b = ev.target.closest('button'); if (!b) return;
+  if (b.dataset.eauto) {
+    const n = autoZuordnen(b.dataset.eauto);
+    if (n) { save(); neu(); renderEin(); toast(eur.format(n) + ' zugeordnet'); }
+    return;
+  }
   if (b.dataset.ev) {
     const g = einLiefSalden().find(x => x.key === b.dataset.ev);
     if (g && verrechnungAnwenden(verrechnungPlan(einVerrItems(g)), g.name)) renderEin();
@@ -2980,6 +3021,172 @@ $('#bilanz').addEventListener('click', ev => {
   const i = b.dataset.bv === 'ein' ? 1 : 0;
   if (typeof Dock !== 'undefined') Dock.gehe(i); else setView(b.dataset.bv);
 });
+
+/* ═══════ Stundenzettel externer Dienstleister einlesen ═══════
+   Liest dieselben Formate wie die Zeitquelle (Stempeluhr-JSON) und zusätzlich CSV.
+   Jeder Monat wird zu einer Eingangsrechnung (Stunden × Satz). Schon übernommene
+   Buchungen erkennt das Rechnungsbuch am Buchungsschlüssel und überspringt sie;
+   kommen später Stunden im selben Monat hinzu, wächst dessen Rechnung mit. */
+function csvZuObjekten(txt){
+  const zeilen = txt.replace(/^\uFEFF/, '').split(/\r?\n/).filter(z => z.trim());
+  if (zeilen.length < 2) return [];
+  const kopf = zeilen[0];
+  const sep = [';', '\t', ','].map(c => [c, kopf.split(c).length]).sort((a,b) => b[1] - a[1])[0][0];
+  const teile = z => { const out = []; let cur = '', q = false;
+    for (let i = 0; i < z.length; i++) { const ch = z[i];
+      if (ch === '"') { if (q && z[i+1] === '"') { cur += '"'; i++; } else q = !q; }
+      else if (ch === sep && !q) { out.push(cur); cur = ''; } else cur += ch; }
+    out.push(cur); return out.map(x => x.trim()); };
+  const k = teile(kopf).map(x => x.toLowerCase().replace(/[^a-zäöüß0-9]/g, ''));
+  return zeilen.slice(1).map(z => { const t = teile(z), o = {}; k.forEach((n, i) => { if (n) o[n] = t[i] ?? ''; }); return o; });
+}
+/* Deutsche Schreibweisen (31.07.2026, 14:30, 2:15 h, 7,5) in Maschinenform bringen. */
+function szAufbereiten(o){
+  const x = Object.assign({}, o);
+  for (const key of Object.keys(x)) {
+    const v = x[key]; if (typeof v !== 'string') continue;
+    const m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:[ T](\d{1,2}):(\d{2}))?$/.exec(v.trim());
+    if (m) { x[key] = m[3] + '-' + m[2].padStart(2,'0') + '-' + m[1].padStart(2,'0') + (m[4] ? 'T' + m[4].padStart(2,'0') + ':' + m[5] : ''); continue; }
+    const hm = /^(\d{1,3}):(\d{2})(?::(\d{2}))?\s*h?$/.exec(v.trim());
+    if (hm && ['stunden','dauer','zeit','duration','hours','std','dauerstd'].includes(key.toLowerCase())) { x[key] = String(+hm[1] + +hm[2] / 60 + (+hm[3] || 0) / 3600); continue; }
+    if (/^-?\d+,\d+$/.test(v.trim())) x[key] = v.trim().replace(',', '.');
+  }
+  /* "datum" + "start"/"ende" als reine Uhrzeiten → zusammensetzen */
+  const fd = feldVon(x,'datum'), fs = feldVon(x,'start'), fe = feldVon(x,'ende');
+  if (fd && fs && /^\d{1,2}:\d{2}$/.test(String(x[fs]))) x[fs] = x[fd] + 'T' + String(x[fs]).padStart(5,'0');
+  if (fd && fe && /^\d{1,2}:\d{2}$/.test(String(x[fe]))) x[fe] = x[fd] + 'T' + String(x[fe]).padStart(5,'0');
+  return x;
+}
+function szBuchungen(objs){
+  return objs.map(szAufbereiten).map(o => {
+    const fn = feldVon(o,'notiz'), fs = feldVon(o,'satz'), fl = feldVon(o,'label'), fa = feldVon(o,'auf');
+    const b = { aufId: fa && o[fa] ? String(o[fa]) : null, ts: zeitpunktVon(o), h: stundenVon(o), satz: fs ? num(o[fs]) : null,
+      notiz: fn ? String(o[fn]) : '', label: fl ? String(o[fl]) : String(o.auftrag ?? o.projekt ?? ''),
+      agbTxt: String(o.auftraggeber ?? o.kunde ?? '') };
+    b.key = bKey(b); return b;
+  }).filter(b => b.ts && b.h > 0);
+}
+let SZ = null;   /* { datei, buchungen } */
+$('#szBtn').addEventListener('click', () => $('#szInput').click());
+$('#szInput').addEventListener('change', async ev => {
+  const f = ev.target.files && ev.target.files[0]; if (!f) return;
+  try {
+    const txt = await f.text(); let objs = [];
+    try { const raw = JSON.parse(txt), out = []; sammle(f.name, raw, out, 0); if (out.length) objs = out.sort((a,b) => b.n - a.n)[0].rows; }
+    catch(e){ objs = csvZuObjekten(txt); }
+    const bs = szBuchungen(objs);
+    if (!bs.length) { toast('In dieser Datei stehen keine erkennbaren Zeitbuchungen (Datum/Start und Dauer/Ende).'); return; }
+    SZ = { datei:f.name, buchungen:bs.sort((a,b) => a.ts - b.ts) };
+    szDlg();
+  } catch(err){ toast('Datei konnte nicht gelesen werden.'); }
+  finally { ev.target.value = ''; }
+});
+function szDlg(){
+  const E = $('#formSZ').elements; $('#formSZ').reset(); $('#errSZ').hidden = true;
+  const bs = SZ.buchungen, satzDatei = bs.find(b => b.satz) ? bs.find(b => b.satz).satz : null;
+  const vorh = [...new Set(store.eingang.filter(e => e.quelle === 'stundenzettel').map(e => e.lieferant))];
+  E.lieferant.value = vorh.length === 1 ? vorh[0] : '';
+  const letzt = store.eingang.filter(e => e.quelle === 'stundenzettel' && e.lieferant === E.lieferant.value).sort((a,b) => b.datum.localeCompare(a.datum))[0];
+  E.satz.value = satzDatei != null ? f2(satzDatei) : letzt ? f2(letzt.satz) : '';
+  E.ust.value = letzt ? letzt.ustSatz : 19;
+  E.ziel.value = 14;
+  $('#einLief').innerHTML = [...new Set(store.eingang.map(e => e.lieferant).concat(store.posten.filter(x => x.art === 'lief').map(x => x.partei)))]
+    .filter(Boolean).map(n => '<option value="' + esc(n) + '">').join('');
+  const von = iso(bs[0].ts), bis = iso(bs[bs.length - 1].ts);
+  $('#szInfo').innerHTML = '<b>' + esc(SZ.datei) + '</b><br>' + bs.length + ' Buchungen · ' + dec1.format(bs.reduce((s,b) => s + b.h, 0)) + ' Std. · '
+    + fmtDate(von) + ' – ' + fmtDate(bis) + (satzDatei != null ? '<br>Stundensatz aus der Datei: ' + eur.format(satzDatei) : '');
+  szVorschau();
+  $('#dlgSZ').showModal();
+  setTimeout(() => (E.lieferant.value ? E.satz : E.lieferant).focus(), 60);
+}
+/* Plan: welche Buchungen neu sind, gruppiert, mit Beträgen – und was davon schon gedeckt ist. */
+function szPlan(){
+  const E = $('#formSZ').elements, lief = E.lieferant.value.trim(), satz = num(E.satz.value), ust = num(E.ust.value) ?? 0;
+  const bekannt = new Set(store.eingang.filter(e => e.lieferant.toLowerCase() === lief.toLowerCase()).flatMap(e => e.keys));
+  const neu = SZ.buchungen.filter(b => !bekannt.has(b.key)), alt = SZ.buchungen.length - neu.length;
+  const grp = new Map();
+  neu.forEach(b => {
+    const k = E.gruppe.value === 'gesamt' ? 'gesamt' : iso(b.ts).slice(0,7);
+    const g = grp.get(k) || { k, h:0, netto:0, keys:[], von:iso(b.ts), bis:iso(b.ts), ohneSatz:0 };
+    const sz = b.satz ?? satz;
+    if (sz == null) g.ohneSatz++;
+    g.h += b.h; g.netto = cent(g.netto + cent(b.h * (sz ?? 0))); g.keys.push(b.key);
+    if (iso(b.ts) < g.von) g.von = iso(b.ts); if (iso(b.ts) > g.bis) g.bis = iso(b.ts);
+    grp.set(k, g);
+  });
+  const liste = [...grp.values()].sort((a,b) => a.von.localeCompare(b.von)).map(g => {
+    const ustB = cent(g.netto * ust / 100);
+    const ziel = E.gruppe.value === 'gesamt' ? null : store.eingang.find(e => e.quelle === 'stundenzettel'
+      && e.lieferant.toLowerCase() === lief.toLowerCase() && e.lVon.slice(0,7) === g.k);
+    return Object.assign(g, { h:cent(g.h), ust:ustB, brutto:cent(g.netto + ustB), ziel });
+  });
+  return { lief, satz, ust, liste, alt, frei: lief ? (postenFreiJePartei('lief').get(lief.toLowerCase()) || { frei:0 }).frei : 0 };
+}
+function szVorschau(){
+  const P = szPlan();
+  const sumB = P.liste.reduce((s,g) => cent(s + g.brutto), 0), sumH = P.liste.reduce((s,g) => s + g.h, 0);
+  $('#szPrev').innerHTML = (P.alt ? '<p class="pdrop" style="padding-top:8px">' + P.alt + ' Buchung' + (P.alt === 1 ? '' : 'en') + ' schon übernommen – werden übersprungen.</p>' : '')
+    + (P.liste.length ? '<table><thead><tr><th>' + ($('#formSZ').elements.gruppe.value === 'gesamt' ? 'Zeitraum' : 'Monat') + '</th><th>Stunden</th><th>Netto</th><th>Brutto</th></tr></thead><tbody>'
+      + P.liste.map(g => '<tr><td>' + (g.k === 'gesamt' ? fmtDate(g.von) + ' – ' + fmtDate(g.bis) : monatsName(g.k))
+        + (g.ziel ? '<br><small style="color:var(--text-3)">ergänzt ' + esc(g.ziel.nummer) + '</small>' : '')
+        + (g.ohneSatz ? '<br><small style="color:var(--bad)">' + g.ohneSatz + '× ohne Satz</small>' : '')
+        + '</td><td>' + dec1.format(g.h) + '</td><td>' + eur.format(g.netto) + '</td><td>' + eur.format(g.brutto) + '</td></tr>').join('')
+      + '<tr><td><b>Summe</b></td><td><b>' + dec1.format(sumH) + '</b></td><td></td><td><b>' + eur.format(sumB) + '</b></td></tr></tbody></table>'
+      + '<p class="pdrop" style="padding-top:10px">Daraus zu überweisen: <b>' + eur.format(sumB) + '</b>'
+      + (P.frei > 0.005 ? ' · bereits überwiesen und noch keiner Rechnung zugeordnet: <b>' + eur.format(P.frei) + '</b> – wird beim Übernehmen automatisch angerechnet (älteste Rechnung zuerst).' : '') + '</p>'
+      : '<p class="hint">Nichts Neues in dieser Datei.</p>');
+}
+['input','change'].forEach(t => $('#formSZ').addEventListener(t, ev => { if (ev.target.name !== undefined && SZ) szVorschau(); }));
+$('#formSZ').addEventListener('submit', ev => {
+  const E = ev.target.elements, P = szPlan();
+  const fehler = m => { ev.preventDefault(); $('#errSZ').textContent = m; $('#errSZ').hidden = false; };
+  if (!P.lief) return fehler('Bitte den Dienstleister angeben.');
+  if (!P.liste.length) return fehler('In dieser Datei ist nichts Neues für ' + P.lief + '.');
+  if (P.liste.some(g => g.ohneSatz)) return fehler('Für einige Buchungen fehlt ein Stundensatz – bitte oben eintragen.');
+  const ziel = Math.max(0, parseInt(E.ziel.value, 10) || 0);
+  P.liste.forEach(g => {
+    if (g.ziel) {
+      const e = g.ziel;
+      e.std = cent(e.std + g.h); e.betrag = cent(e.betrag + g.brutto); e.ust = cent(e.ust + g.ust);
+      e.keys.push(...g.keys); if (g.von < e.lVon) e.lVon = g.von; if (g.bis > e.lBis) e.lBis = g.bis;
+      e.satz = P.satz ?? e.satz;
+      e.text = 'Stundenzettel · ' + dec1.format(e.std) + ' Std.' + (e.satz ? ' × ' + eur.format(e.satz) : '');
+      return;
+    }
+    const monatsEnde = g.k === 'gesamt' ? g.bis : plus(g.k + '-01', 40).slice(0,7) + '-01';
+    let datum = g.k === 'gesamt' ? g.bis : plus(monatsEnde, -1);
+    if (datum > heute()) datum = heute();
+    let nr = 'SZ ' + (g.k === 'gesamt' ? g.von.slice(0,7) + '…' + g.bis.slice(0,7) : g.k), n = 2;
+    while (store.eingang.some(x => x.lieferant.toLowerCase() === P.lief.toLowerCase() && x.nummer === nr)) nr = nr.replace(/ #\d+$/, '') + ' #' + (n++);
+    store.eingang.push(normEin({ id:uid(), lieferant:P.lief, nummer:nr, datum, faellig:plus(datum, ziel),
+      betrag:g.brutto, ust:g.ust, ustSatz:P.ust, std:g.h, satz:P.satz ?? 0, lVon:g.von, lBis:g.bis, keys:g.keys,
+      quelle:'stundenzettel', text:'Stundenzettel · ' + dec1.format(g.h) + ' Std.' + (P.satz ? ' × ' + eur.format(P.satz) : ''), zahlungen:[] }));
+  });
+  const n = autoZuordnen(P.lief.toLowerCase());
+  einZu.delete(P.lief.toLowerCase());
+  save(); neu(); renderEin();
+  toast(P.liste.length + (E.gruppe.value === 'gesamt' ? ' Abrechnung' : ' Monat' + (P.liste.length === 1 ? '' : 'e')) + ' übernommen'
+    + (n ? ' · ' + eur.format(n) + ' vorhandene Überweisungen angerechnet' : ''));
+});
+
+/* Freie Überweisungen eines Dienstleisters auf seine offenen Rechnungen verteilen – älteste zuerst. */
+function autoZuordnen(key){
+  const V = postenVerteilung();
+  const post = store.posten.filter(p => p.art === 'lief' && p.partei.toLowerCase() === key).sort((a,b) => a.datum.localeCompare(b.datum))
+    .map(p => ({ p, frei:postenFrei(p, V) })).filter(x => x.frei > 0.005);
+  const offen = store.eingang.filter(e => e.lieferant.toLowerCase() === key && einRest(e) > 0.005).sort((a,b) => a.datum.localeCompare(b.datum));
+  let summeZ = 0;
+  for (const e of offen) {
+    let need = einRest(e);
+    for (const x of post) {
+      if (need <= 0.005) break; if (x.frei <= 0.005) continue;
+      const b = cent(Math.min(x.frei, need));
+      e.zahlungen.push({ id:uid(), datum:x.p.datum, betrag:b, notiz:'Zahlung vom ' + fmtDate(x.p.datum) + (x.p.notiz ? ' · ' + x.p.notiz : ''), verrVon:'', verrAuf:'', postenId:x.p.id });
+      x.frei = cent(x.frei - b); need = cent(need - b); summeZ = cent(summeZ + b);
+    }
+  }
+  return summeZ;
+}
 
 /* ═══════ Ansicht ═══════ */
 let filter = 'offen', query = '', clientF = '', jahrF = '', selId = null;
