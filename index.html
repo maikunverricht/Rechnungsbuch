@@ -343,6 +343,8 @@ html[data-theme="light"] .wipe{mix-blend-mode:multiply}
                 35%{opacity:.16}
                 100%{opacity:0;transform:translate(-50%,-50%) scale(3.4)}}
 
+.rc-zr{font-family:var(--mono);font-size:11.5px;color:var(--text-2);margin-top:5px;letter-spacing:.02em}
+
 /* Salden je Auftraggeber */
 .sd{border:1px solid var(--line);border-radius:14px;background:var(--glass);margin-top:10px;overflow:hidden}
 .sd summary{display:flex;align-items:center;gap:12px;padding:12px 15px;cursor:pointer;list-style:none;flex-wrap:wrap}
@@ -1801,7 +1803,8 @@ function normRech(r){
     kopf:String(r.kopf || ''), fuss:String(r.fuss || ''),
     positionen:(Array.isArray(r.positionen) ? r.positionen : []).map(normPos).filter(Boolean),
     zahlungen:(Array.isArray(r.zahlungen) ? r.zahlungen : []).filter(z => z && z.datum).map(z => ({
-      id:String(z.id || uid()), datum:String(z.datum).slice(0,10), betrag:cent(num(z.betrag) ?? 0), notiz:String(z.notiz || '') })),
+      id:String(z.id || uid()), datum:String(z.datum).slice(0,10), betrag:cent(num(z.betrag) ?? 0), notiz:String(z.notiz || ''),
+      verrVon:String(z.verrVon || ''), verrAuf:String(z.verrAuf || '') })),
     absender: r.absender && typeof r.absender === 'object' ? r.absender : null,
     empfAgb: r.empfAgb != null ? String(r.empfAgb) : null,
     angelegt:String(r.angelegt || new Date().toISOString()),
@@ -1815,7 +1818,8 @@ function normEin(e){
     datum, faellig: dd(e.faellig) || datum, betrag:cent(num(e.betrag) ?? 0), ust:cent(num(e.ust) ?? 0),
     text:String(e.text || ''),
     zahlungen:(Array.isArray(e.zahlungen) ? e.zahlungen : []).filter(z => z && z.datum).map(z => ({
-      id:String(z.id || uid()), datum:String(z.datum).slice(0,10), betrag:cent(num(z.betrag) ?? 0), notiz:String(z.notiz || '') })),
+      id:String(z.id || uid()), datum:String(z.datum).slice(0,10), betrag:cent(num(z.betrag) ?? 0), notiz:String(z.notiz || ''),
+      verrVon:String(z.verrVon || ''), verrAuf:String(z.verrAuf || '') })),
     angelegt:String(e.angelegt || new Date().toISOString()) };
 }
 function normStore(raw){
@@ -2205,6 +2209,28 @@ function naechsteNummer(datum){
 /* Guthaben verrechnen: Überzahlungen einer Rechnung werden auf offene Rechnungen derselben
    Partei gebucht – älteste zuerst. Technisch eine Gegenbuchung (negative Zahlung) auf der
    überzahlten und eine Zahlung auf der offenen Rechnung; der Saldo der Partei bleibt gleich. */
+/* Woher/wohin eine Verrechnung ging – auch für ältere Buchungen, die nur die Notiz kennen. */
+function verrInfo(z){
+  if (z.verrVon) return { typ:'von', nr:z.verrVon, betrag:z.betrag };
+  if (z.verrAuf) return { typ:'auf', nr:z.verrAuf, betrag:-z.betrag };
+  const m = /^Verrechnet (von|auf) (.+)$/.exec(z.notiz || '');
+  return m ? { typ:m[1], nr:m[2], betrag:Math.abs(z.betrag) } : null;
+}
+function verrTags(zahlungen){
+  return zahlungen.map(verrInfo).filter(Boolean).map(v => v.typ === 'von'
+    ? '<span class="tag info" title="Mit dem Überschuss einer anderen Rechnung beglichen">' + eur.format(v.betrag) + ' mitbezahlt über ' + esc(v.nr) + '</span>'
+    : '<span class="tag info" title="Überschuss dieser Rechnung auf eine andere verrechnet">' + eur.format(v.betrag) + ' Überschuss → ' + esc(v.nr) + '</span>');
+}
+const MON = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+function zeitraumTxt(von, bis){
+  if (!von && !bis) return '';
+  if (!von || !bis) return fmtDate(von || bis);
+  const ende = d => plus(d, 1).slice(8,10) === '01';
+  if (von.slice(0,7) === bis.slice(0,7) && von.slice(8,10) === '01' && ende(bis)) return MON[+von.slice(5,7) - 1] + ' ' + von.slice(0,4);
+  if (von.slice(8,10) === '01' && ende(bis)) return MON[+von.slice(5,7) - 1] + (von.slice(0,4) !== bis.slice(0,4) ? ' ' + von.slice(0,4) : '') + ' – ' + MON[+bis.slice(5,7) - 1] + ' ' + bis.slice(0,4);
+  return fmtDate(von) + ' – ' + fmtDate(bis);
+}
+
 function verrechnungPlan(items){
   const gut = items.filter(x => x.rest < -0.005).map(x => Object.assign({ frei:-x.rest }, x))
     .sort((a,b) => a.datum.localeCompare(b.datum));
@@ -2227,8 +2253,8 @@ function verrechnungAnwenden(moves, name){
   if (!confirm('Guthaben bei ' + name + ' verrechnen?\n\n' + txt + '\n\nDer Saldo ändert sich dadurch nicht.')) return false;
   const d = heute();
   moves.forEach(m => {
-    m.von.o.zahlungen.push({ id:uid(), datum:d, betrag:-m.betrag, notiz:'Verrechnet auf ' + (m.nach.nr || 'andere Rechnung') });
-    m.nach.o.zahlungen.push({ id:uid(), datum:d, betrag:m.betrag, notiz:'Verrechnet von ' + (m.von.nr || 'anderer Rechnung') });
+    m.von.o.zahlungen.push({ id:uid(), datum:d, betrag:-m.betrag, notiz:'Verrechnet auf ' + (m.nach.nr || 'andere Rechnung'), verrAuf:m.nach.nr || '?' });
+    m.nach.o.zahlungen.push({ id:uid(), datum:d, betrag:m.betrag, notiz:'Verrechnet von ' + (m.von.nr || 'anderer Rechnung'), verrVon:m.von.nr || '?' });
   });
   save(); toast('Guthaben verrechnet');
   return true;
@@ -2350,6 +2376,7 @@ function renderEin(){
           return '<div class="iv"><span class="t">' + esc(e.nummer || 'ohne Nummer') + ' · ' + fmtDate(e.datum)
             + '<small>' + eur.format(e.betrag) + ' · fällig ' + fmtDate(e.faellig) + (e.text ? ' · ' + esc(e.text) : '') + '</small></span>'
             + '<span class="a ' + st[0] + '">' + st[1] + '</span>'
+            + (e.zahlungen.some(verrInfo) ? '<div class="pz" style="flex-wrap:wrap;gap:6px">' + verrTags(e.zahlungen).join('') + '</div>' : '')
             + '<button class="pill sm" type="button" data-ez="' + esc(e.id) + '">+ Zahlung</button>'
             + '<button class="pill icon-btn sm" type="button" data-ee="' + esc(e.id) + '" aria-label="Bearbeiten">✎</button>'
             + e.zahlungen.slice().sort((a,b) => a.datum.localeCompare(b.datum)).map(z =>
@@ -2689,6 +2716,7 @@ function cardHTML(r){
   else if (['offen','teilbezahlt'].includes(z)) tags.push('<span class="tag' + (tage(s.faellig, heute()) <= 7 ? ' due' : '') + '">fällig ' + fmtDate(s.faellig) + '</span>');
   if (z === 'teilbezahlt') tags.push('<span class="tag due">' + eurK.format(s.bezahlt) + ' erhalten</span>');
   if (r.festgeschrieben && !r.storniert && s.rest < -0.005) tags.push('<span class="tag info">' + eur.format(-s.rest) + ' zu viel bezahlt</span>');
+  tags.push(...verrTags(r.zahlungen));
   if (r.steuerfall === 'rc') tags.push('<span class="tag info">Reverse Charge</span>');
   if (r.steuerfall === 'klein') tags.push('<span class="tag">§ 19</span>');
   if (r.leitweg) tags.push('<span class="tag info">Leitweg</span>');
@@ -2698,6 +2726,7 @@ function cardHTML(r){
     + '<div class="rc-cl">' + esc(r.empf.name || (c ? c.name : 'Ohne Empfänger')) + '</div>'
     + (c && r.empf.name && c.name !== r.empf.name ? '<div class="rc-auf" style="color:var(--text-3)">heute: ' + esc(c.name) + '</div>' : '')
     + '<div class="rc-auf">' + esc(r.aufName || 'ohne Auftrag') + (r.projektnummer ? ' · ' + esc(r.projektnummer) : '') + '</div>'
+    + (r.lVon || r.lBis ? '<div class="rc-zr">◷ ' + zeitraumTxt(r.lVon, r.lBis) + '</div>' : '')
     + '</div><span class="st" data-s="' + z + '"><i></i>' + ZTXT[z] + '</span></div>'
     + '<div class="rc-sum"><b>' + eur.format(s.brutto) + '</b><span>' + (r.steuerfall === 'regel' ? eur.format(s.netto) + ' netto' : 'ohne USt') + '</span></div>'
     + '<div class="rc-foot">' + tags.join('')
