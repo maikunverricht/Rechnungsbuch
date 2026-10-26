@@ -146,6 +146,12 @@ h1 em{font-style:italic;font-weight:600;background:linear-gradient(94deg,var(--e
 .seg button{height:32px;padding:0 13px;border:0;border-radius:100px;background:transparent;cursor:pointer;font-size:13.5px;
   color:var(--text-2);transition:background var(--t-s),color var(--t-s)}
 .seg button[aria-pressed="true"]{background:var(--amber);color:var(--ink);font-weight:600}
+.vseg{display:flex;padding:4px;border-radius:16px;border:1px solid var(--line);background:var(--glass);gap:4px;margin-top:22px}
+.vseg button{flex:1;min-height:44px;padding:6px 14px;border:0;border-radius:12px;background:transparent;cursor:pointer;font-size:14.5px;
+  color:var(--text-2);transition:background var(--t-s),color var(--t-s);line-height:1.25}
+.vseg button small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.75;margin-top:2px}
+.vseg button[aria-pressed="true"]{background:var(--amber);color:var(--ink);font-weight:600}
+#einView .sd{background:var(--glass-2)}
 .selwrap{position:relative}
 .selwrap select{height:38px;border-radius:100px;border:1px solid var(--line);background:var(--glass);padding:0 34px 0 15px;
   font-size:14px;outline:none;appearance:none;-webkit-appearance:none;cursor:pointer;max-width:230px;
@@ -508,6 +514,12 @@ html[data-theme="light"]{
     <div class="kpis" id="kpis"></div>
   </section>
 
+  <nav class="vseg" id="viewSeg" aria-label="Ansicht">
+    <button type="button" data-v="aus" aria-pressed="true">Rechnungen an Kunden<small>Ausgang · ich stelle in Rechnung</small></button>
+    <button type="button" data-v="ein" aria-pressed="false">Rechnungen von Dienstleistern<small>Eingang · ich bezahle</small></button>
+  </nav>
+
+  <div id="ausView">
   <section class="tools" aria-label="Filter">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -523,13 +535,22 @@ html[data-theme="light"]{
     <span class="selwrap"><select id="cSel" aria-label="Auftraggeber"></select></span>
     <span class="selwrap"><select id="jSel" aria-label="Jahr"></select></span>
     <button class="pill" id="saldenBtn" type="button">Salden</button>
-    <button class="pill" id="einBtn" type="button">Eingang</button>
     <button class="pill primary" id="newRech" type="button">+ Rechnung</button>
     <span class="count" id="count"></span>
   </section>
 
   <section class="grid" id="grid"></section>
   <section class="detail" id="detail" aria-live="polite" hidden></section>
+  </div>
+
+  <div id="einView" hidden>
+    <section class="tools" aria-label="Eingangsrechnungen">
+      <label class="rowlab"><input type="checkbox" id="einNur" checked> Nur offene und Abweichungen zeigen</label>
+      <button class="pill primary" id="einNeu" type="button" style="margin-left:auto">+ Eingangsrechnung</button>
+    </section>
+    <div class="sdsum" id="einSum" style="margin-top:16px"></div>
+    <div id="einList"></div>
+  </div>
 </main>
 
 <footer class="site">
@@ -599,19 +620,6 @@ html[data-theme="light"]{
 </div></dialog>
 
 <!-- Eingangsrechnungen (von externen Dienstleistern) -->
-<dialog id="dlgEinL"><div class="sheet">
-  <header><h3>Eingangsrechnungen</h3><button class="pill icon-btn sm" type="button" data-close aria-label="Schließen">✕</button></header>
-  <div class="body">
-    <div class="sdsum" id="einSum"></div>
-    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">
-      <label class="rowlab"><input type="checkbox" id="einNur" checked> Nur offene und Abweichungen zeigen</label>
-      <button class="pill primary sm" id="einNeu" type="button" style="margin-left:auto">+ Eingangsrechnung</button>
-    </div>
-    <div id="einList"></div>
-  </div>
-  <footer><button class="pill" type="button" data-close>Schließen</button></footer>
-</div></dialog>
-
 <dialog id="dlgEin"><form class="sheet" method="dialog" id="formEin">
   <header><h3 id="dlgEinTitle">Eingangsrechnung</h3><button class="pill icon-btn sm" type="button" data-close aria-label="Schließen">✕</button></header>
   <div class="body"><div class="form">
@@ -2121,6 +2129,42 @@ function naechsteNummer(datum){
    Saldo = berechnet (festgeschriebene Rechnungen inkl. Stornos) − erhaltene Zahlungen.
    Positiv: noch offen. Negativ: zu viel bezahlt. So gleicht eine Mehrzahlung
    eine spätere Rechnung aus – und eine Minderzahlung bleibt als Rest stehen. */
+/* Guthaben verrechnen: Überzahlungen einer Rechnung werden auf offene Rechnungen derselben
+   Partei gebucht – älteste zuerst. Technisch eine Gegenbuchung (negative Zahlung) auf der
+   überzahlten und eine Zahlung auf der offenen Rechnung; der Saldo der Partei bleibt gleich. */
+function verrechnungPlan(items){
+  const gut = items.filter(x => x.rest < -0.005).map(x => Object.assign({ frei:-x.rest }, x))
+    .sort((a,b) => a.datum.localeCompare(b.datum));
+  const off = items.filter(x => x.rest > 0.005).sort((a,b) => a.datum.localeCompare(b.datum));
+  const moves = [];
+  off.forEach(o => {
+    let need = o.rest;
+    for (const g of gut) {
+      if (need <= 0.005) break;
+      const t = cent(Math.min(g.frei, need));
+      if (t <= 0.005) continue;
+      moves.push({ von:g, nach:o, betrag:t }); g.frei = cent(g.frei - t); need = cent(need - t);
+    }
+  });
+  return moves;
+}
+function verrechnungAnwenden(moves, name){
+  if (!moves.length) { toast('Nichts zu verrechnen.'); return false; }
+  const txt = moves.map(m => '• ' + eur.format(m.betrag) + ' von ' + (m.von.nr || 'ohne Nr.') + ' auf ' + (m.nach.nr || 'ohne Nr.')).join('\n');
+  if (!confirm('Guthaben bei ' + name + ' verrechnen?\n\n' + txt + '\n\nDer Saldo ändert sich dadurch nicht.')) return false;
+  const d = heute();
+  moves.forEach(m => {
+    m.von.o.zahlungen.push({ id:uid(), datum:d, betrag:-m.betrag, notiz:'Verrechnet auf ' + (m.nach.nr || 'andere Rechnung') });
+    m.nach.o.zahlungen.push({ id:uid(), datum:d, betrag:m.betrag, notiz:'Verrechnet von ' + (m.von.nr || 'anderer Rechnung') });
+  });
+  save(); toast('Guthaben verrechnet');
+  return true;
+}
+const ausVerrItems = g => g.rechnungen.filter(x => x.r.festgeschrieben && !x.r.stornoVon && !x.r.storniert)
+  .map(x => ({ o:x.r, nr:x.nr, datum:x.datum, rest:x.rest }));
+const einVerrItems = g => g.items.map(e => ({ o:e, nr:e.nummer, datum:e.datum, rest:einRest(e) }));
+const kannVerr = items => items.some(x => x.rest < -0.005) && items.some(x => x.rest > 0.005);
+
 function salden(){
   const m = new Map();
   store.rechnungen.filter(r => r.festgeschrieben).forEach(r => {
@@ -2133,7 +2177,7 @@ function salden(){
     const a = mon(r.datum.slice(0,7)); a.soll = cent(a.soll + sm.brutto);
     r.zahlungen.forEach(z => { const b = mon(z.datum.slice(0,7)); b.ist = cent(b.ist + z.betrag); });
     g.brutto = cent(g.brutto + sm.brutto); g.bezahlt = cent(g.bezahlt + sm.bezahlt);
-    if (Math.abs(sm.rest) > 0.005 && !r.storniert) g.rechnungen.push({ nr:r.nummer, rest:sm.rest, datum:r.datum });
+    if (Math.abs(sm.rest) > 0.005 && !r.storniert) g.rechnungen.push({ nr:r.nummer, rest:sm.rest, datum:r.datum, r });
     m.set(key, g);
   });
   return [...m.values()].map(g => {
@@ -2161,6 +2205,7 @@ function renderSalden(){
     return '<details class="sd"><summary><span class="nm">' + esc(g.name)
       + '<small>berechnet ' + eur.format(g.brutto) + ' · bezahlt ' + eur.format(g.bezahlt) + '</small></span>'
       + '<span class="sal ' + k[0] + '">' + k[1] + '</span></summary><div class="in">'
+      + (kannVerr(ausVerrItems(g)) ? '<div style="margin-top:10px"><button class="pill sm" type="button" data-vk="' + esc(g.key) + '">⇄ Guthaben mit offenen Rechnungen verrechnen</button></div>' : '')
       + '<table><thead><tr><th>Monat</th><th>Berechnet</th><th>Bezahlt</th><th>Saldo kumuliert</th></tr></thead><tbody>'
       + g.monateL.map(x => '<tr><td>' + monatsName(x.ym) + '</td><td>' + eur.format(x.soll) + '</td><td>' + eur.format(x.ist)
         + '</td><td class="' + (x.kum > 0.005 ? 'pos' : x.kum < -0.005 ? 'neg' : '') + '">' + eur.format(x.kum) + '</td></tr>').join('')
@@ -2173,6 +2218,11 @@ function renderSalden(){
 }
 $('#saldenBtn').addEventListener('click', () => { renderSalden(); $('#dlgSalden').showModal(); });
 $('#sdNurDiff').addEventListener('change', renderSalden);
+$('#sdList').addEventListener('click', ev => {
+  const b = ev.target.closest('button[data-vk]'); if (!b) return;
+  const g = salden().find(x => x.key === b.dataset.vk); if (!g) return;
+  if (verrechnungAnwenden(verrechnungPlan(ausVerrItems(g)), g.name)) { renderSalden(); neu(); }
+});
 
 /* ═══════ Eingangsrechnungen ═══════
    Rechnungen externer Dienstleister, die ich bezahle. Saldo je Lieferant =
@@ -2201,6 +2251,7 @@ function einLiefSalden(){
 }
 const einZu = new Set(); /* bewusst zugeklappte Lieferanten – alle anderen stehen offen */
 function renderEin(){
+  if (VIEW === 'ein') renderEinKPIs();
   const alle = einLiefSalden(), nur = $('#einNur').checked, h = heute();
   const zahlen = alle.reduce((s,g) => g.saldo > 0.005 ? cent(s + g.saldo) : s, 0);
   const guth = alle.reduce((s,g) => g.saldo < -0.005 ? cent(s - g.saldo) : s, 0);
@@ -2217,6 +2268,7 @@ function renderEin(){
     return '<details class="sd" data-k="' + esc(g.key) + '"' + (einZu.has(g.key) ? '' : ' open') + '><summary><span class="nm">' + esc(g.name)
       + '<small>Rechnungen ' + eur.format(g.brutto) + ' · bezahlt ' + eur.format(g.bezahlt) + '</small></span>'
       + '<span class="sal ' + k[0] + '">' + k[1] + '</span></summary><div class="in">'
+      + (kannVerr(einVerrItems(g)) ? '<div style="margin:10px 0 2px"><button class="pill sm" type="button" data-ev="' + esc(g.key) + '">⇄ Guthaben mit offenen Rechnungen verrechnen</button></div>' : '')
       + '<h6>Rechnungen</h6>'
       + items.map(e => {
           const r = einRest(e);
@@ -2239,8 +2291,32 @@ function renderEin(){
       + '</tbody></table></div></details>';
   }).join('') : '<p class="hint">' + (alle.length ? 'Alles ausgeglichen.' : 'Noch keine Eingangsrechnung erfasst.') + '</p>';
 }
-function einOeffnen(){ renderEin(); if (!$('#dlgEinL').open) $('#dlgEinL').showModal(); }
-$('#einBtn').addEventListener('click', einOeffnen);
+let VIEW = 'aus';
+try { if (localStorage.getItem('rb-view') === 'ein') VIEW = 'ein'; } catch(e){}
+function setView(v){
+  VIEW = v === 'ein' ? 'ein' : 'aus';
+  try { localStorage.setItem('rb-view', VIEW); } catch(e){}
+  $$('#viewSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === VIEW)));
+  $('#ausView').hidden = VIEW !== 'aus';
+  $('#einView').hidden = VIEW !== 'ein';
+  const eb = $('.head .eyebrow'); if (eb) eb.textContent = VIEW === 'ein' ? 'Eingangsrechnungen · Zu zahlen' : 'Rechnungen · Offene Posten';
+  renderKPIs();
+  if (VIEW === 'ein') renderEin();
+}
+$$('#viewSeg button').forEach(b => b.addEventListener('click', () => setView(b.dataset.v)));
+function renderEinKPIs(){
+  const h = heute(), alle = einLiefSalden();
+  const zahlen = alle.reduce((s,g) => g.saldo > 0.005 ? cent(s + g.saldo) : s, 0);
+  const guth = alle.reduce((s,g) => g.saldo < -0.005 ? cent(s - g.saldo) : s, 0);
+  const sp = store.eingang.filter(e => einRest(e) > 0.005 && e.faellig < h);
+  const spaet = sp.reduce((s,e) => cent(s + einRest(e)), 0);
+  const jahr = h.slice(0,4), jahrSum = store.eingang.filter(e => e.datum.slice(0,4) === jahr).reduce((s,e) => cent(s + e.betrag), 0);
+  $('#kpis').innerHTML =
+      '<div class="kpi"><b>' + eurK.format(zahlen) + '</b><span>zu zahlen</span></div>'
+    + '<div class="kpi' + (spaet > 0 ? ' warn' : '') + '"><b>' + eurK.format(spaet) + '</b><span>' + sp.length + '× überfällig</span></div>'
+    + '<div class="kpi"><b>' + eurK.format(guth) + '</b><span>zu viel überwiesen</span></div>'
+    + '<div class="kpi"><b>' + eurK.format(jahrSum) + '</b><span>brutto ' + jahr + '</span></div>';
+}
 $('#einNur').addEventListener('change', renderEin);
 $('#einList').addEventListener('toggle', ev => {
   const k = ev.target.dataset && ev.target.dataset.k; if (k == null) return;
@@ -2248,7 +2324,11 @@ $('#einList').addEventListener('toggle', ev => {
 }, true);
 $('#einList').addEventListener('click', ev => {
   const b = ev.target.closest('button'); if (!b) return;
-  if (b.dataset.ez) einZahlDlg(b.dataset.ez);
+  if (b.dataset.ev) {
+    const g = einLiefSalden().find(x => x.key === b.dataset.ev);
+    if (g && verrechnungAnwenden(verrechnungPlan(einVerrItems(g)), g.name)) renderEin();
+  }
+  else if (b.dataset.ez) einZahlDlg(b.dataset.ez);
   else if (b.dataset.ee) einDlg(b.dataset.ee);
   else if (b.dataset.edz) {
     const [eid, zid] = b.dataset.edz.split('|');
@@ -2349,6 +2429,7 @@ function passt(r){
 }
 
 function renderKPIs(){
+  if (typeof VIEW !== 'undefined' && VIEW === 'ein') return renderEinKPIs();
   const h = heute(), jahr = h.slice(0,4);
   let offen = 0, spaet = 0, spaetN = 0, jahrSum = 0;
   /* Umsatz des Jahres zählt jede festgeschriebene Rechnung – auch stornierte und
@@ -3265,7 +3346,7 @@ function entwuerfeNachziehen(){
   });
   if (ch) save();
 }
-function neu(){ sammleStamm(); entwuerfeNachziehen(); renderSelects(); renderKPIs(); renderGrid(); renderDetail(); }
+function neu(){ sammleStamm(); entwuerfeNachziehen(); renderSelects(); renderKPIs(); renderGrid(); renderDetail(); if (VIEW === 'ein') renderEin(); }
 
 async function frisch(){
   abMode = await ladeAb();
@@ -3293,6 +3374,7 @@ async function boot(){
   abMode = await ladeAb();
   ladeZeit();
   neu();
+  setView(VIEW);
   if (!EIN().absender.name) {
     toast('Zuerst die Einstellungen ausfüllen – ohne Absender lässt sich keine Rechnung festschreiben.');
     setTimeout(setDlg, 700);
