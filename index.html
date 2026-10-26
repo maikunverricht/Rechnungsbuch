@@ -308,6 +308,17 @@ label input:focus,label select:focus,label textarea:focus{border-color:var(--lin
 .sdsum{display:flex;gap:18px;flex-wrap:wrap;font-family:var(--mono);font-size:13px;color:var(--text-2);margin-bottom:4px}
 .sdsum b{color:var(--text)}
 
+/* Eingangsrechnungen */
+.sd .iv{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 0;border-top:1px solid var(--line);font-family:var(--mono);font-size:12.5px}
+.sd .iv:first-of-type{border-top:0}
+.sd .iv .t{flex:1;min-width:150px;color:var(--text-2)}
+.sd .iv .t small{display:block;color:var(--text-3);font-size:11px;margin-top:2px}
+.sd .iv .a{white-space:nowrap}
+.sd .iv .a.late{color:var(--bad)} .sd .iv .a.teil{color:var(--warn)} .sd .iv .a.zuv{color:var(--info)} .sd .iv .a.ok{color:var(--ok)}
+.sd .pz{flex-basis:100%;display:flex;gap:8px;align-items:center;color:var(--text-3);font-size:11.5px;padding-left:10px}
+.sd .pz span:first-child{flex:1}
+.sd h6{margin:14px 0 2px;font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--text-3);font-weight:400}
+
 /* Zeitbuchungs-Auswahl */
 .pvhd{display:flex;align-items:center;gap:9px;margin-top:14px;font-family:var(--mono);font-size:11px;
   letter-spacing:.11em;text-transform:uppercase;color:var(--text-3);flex-wrap:wrap}
@@ -512,6 +523,7 @@ html[data-theme="light"]{
     <span class="selwrap"><select id="cSel" aria-label="Auftraggeber"></select></span>
     <span class="selwrap"><select id="jSel" aria-label="Jahr"></select></span>
     <button class="pill" id="saldenBtn" type="button">Salden</button>
+    <button class="pill" id="einBtn" type="button">Eingang</button>
     <button class="pill primary" id="newRech" type="button">+ Rechnung</button>
     <span class="count" id="count"></span>
   </section>
@@ -585,6 +597,56 @@ html[data-theme="light"]{
   </div>
   <footer><button class="pill" type="button" data-close>Schließen</button></footer>
 </div></dialog>
+
+<!-- Eingangsrechnungen (von externen Dienstleistern) -->
+<dialog id="dlgEinL"><div class="sheet">
+  <header><h3>Eingangsrechnungen</h3><button class="pill icon-btn sm" type="button" data-close aria-label="Schließen">✕</button></header>
+  <div class="body">
+    <div class="sdsum" id="einSum"></div>
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0 2px">
+      <label class="rowlab"><input type="checkbox" id="einNur" checked> Nur offene und Abweichungen zeigen</label>
+      <button class="pill primary sm" id="einNeu" type="button" style="margin-left:auto">+ Eingangsrechnung</button>
+    </div>
+    <div id="einList"></div>
+  </div>
+  <footer><button class="pill" type="button" data-close>Schließen</button></footer>
+</div></dialog>
+
+<dialog id="dlgEin"><form class="sheet" method="dialog" id="formEin">
+  <header><h3 id="dlgEinTitle">Eingangsrechnung</h3><button class="pill icon-btn sm" type="button" data-close aria-label="Schließen">✕</button></header>
+  <div class="body"><div class="form">
+    <label class="wide">Dienstleister / Lieferant<input name="lieferant" list="einLief" maxlength="160" autocomplete="off" required></label>
+    <datalist id="einLief"></datalist>
+    <label class="wide">Rechnungsnummer des Lieferanten<input name="nummer" maxlength="80" autocomplete="off"></label>
+    <div class="row r2">
+      <label>Rechnungsdatum<input name="datum" type="date" required></label>
+      <label>Fällig am<input name="faellig" type="date"></label>
+    </div>
+    <div class="row r2">
+      <label>Brutto (€)<input name="betrag" type="number" step="0.01" inputmode="decimal" required></label>
+      <label>davon USt (€)<input name="ust" type="number" step="0.01" inputmode="decimal"></label>
+    </div>
+    <label class="wide">Beschreibung / Notiz<input name="text" maxlength="300" autocomplete="off"></label>
+  </div><p class="err" id="errEin" hidden></p></div>
+  <footer>
+    <button class="pill danger" type="button" id="einDel" hidden>Löschen</button>
+    <button class="pill" type="button" data-close style="margin-left:auto">Abbrechen</button>
+    <button class="pill primary" type="submit" style="margin-left:0">Speichern</button>
+  </footer>
+</form></dialog>
+
+<dialog id="dlgEinZ"><form class="sheet" method="dialog" id="formEinZ">
+  <header><h3>Zahlung an Dienstleister</h3><button class="pill icon-btn sm" type="button" data-close aria-label="Schließen">✕</button></header>
+  <div class="body"><p class="box" id="einZInfo" style="margin:0 0 14px"></p><div class="form">
+    <label>Datum<input name="datum" type="date" required></label>
+    <label>Betrag (€)<input name="betrag" type="number" step="0.01" inputmode="decimal" required></label>
+    <label class="wide">Notiz<input name="notiz" maxlength="200" autocomplete="off" placeholder="Überweisung, Teilzahlung …"></label>
+  </div><p class="err" id="errEinZ" hidden></p></div>
+  <footer>
+    <button class="pill" type="button" data-close>Abbrechen</button>
+    <button class="pill primary" type="submit">Eintragen</button>
+  </footer>
+</form></dialog>
 
 <!-- Position -->
 <dialog id="dlgPos"><form class="sheet" method="dialog" id="formPos">
@@ -1623,7 +1685,7 @@ const EINST = {
   hinweisRc:'Steuerschuldnerschaft des Leistungsempfängers – Reverse Charge.'
 };
 const LEER = { app:'werkbank-rechnungsbuch', version:1, updated:null,
-  einstellungen: structuredClone(EINST), rechnungen:[], abgerechnet:{} };
+  einstellungen: structuredClone(EINST), rechnungen:[], eingang:[], abgerechnet:{} };
 let store = structuredClone(LEER);
 let ownHandle = null, ownReady = false, dirty = false, saveT = null;
 
@@ -1664,6 +1726,17 @@ function normRech(r){
     angelegt:String(r.angelegt || new Date().toISOString()),
     festgeschrieben: r.festgeschrieben ? String(r.festgeschrieben) : null };
 }
+function normEin(e){
+  if (!e || !e.id) return null;
+  const dd = v => { const x = String(v || '').slice(0,10); return /^\d{4}-\d{2}-\d{2}$/.test(x) ? x : ''; };
+  const datum = dd(e.datum) || heute();
+  return { id:String(e.id), lieferant:String(e.lieferant || '').trim(), nummer:String(e.nummer || '').trim(),
+    datum, faellig: dd(e.faellig) || datum, betrag:cent(num(e.betrag) ?? 0), ust:cent(num(e.ust) ?? 0),
+    text:String(e.text || ''),
+    zahlungen:(Array.isArray(e.zahlungen) ? e.zahlungen : []).filter(z => z && z.datum).map(z => ({
+      id:String(z.id || uid()), datum:String(z.datum).slice(0,10), betrag:cent(num(z.betrag) ?? 0), notiz:String(z.notiz || '') })),
+    angelegt:String(e.angelegt || new Date().toISOString()) };
+}
 function normStore(raw){
   const d = structuredClone(LEER);
   if (!raw || typeof raw !== 'object') return d;
@@ -1680,6 +1753,7 @@ function normStore(raw){
     hinweisKlein: typeof e.hinweisKlein === 'string' ? e.hinweisKlein : EINST.hinweisKlein,
     hinweisRc: typeof e.hinweisRc === 'string' ? e.hinweisRc : EINST.hinweisRc };
   d.rechnungen = (Array.isArray(raw.rechnungen) ? raw.rechnungen : []).map(normRech).filter(Boolean);
+  d.eingang = (Array.isArray(raw.eingang) ? raw.eingang : []).map(normEin).filter(Boolean);
   if (raw.abgerechnet && typeof raw.abgerechnet === 'object')
     for (const k of Object.keys(raw.abgerechnet)) d.abgerechnet[String(k)] = String(raw.abgerechnet[k]);
   d.updated = raw.updated || null;
@@ -2099,6 +2173,160 @@ function renderSalden(){
 }
 $('#saldenBtn').addEventListener('click', () => { renderSalden(); $('#dlgSalden').showModal(); });
 $('#sdNurDiff').addEventListener('change', renderSalden);
+
+/* ═══════ Eingangsrechnungen ═══════
+   Rechnungen externer Dienstleister, die ich bezahle. Saldo je Lieferant =
+   Rechnungsbeträge − meine Überweisungen: positiv = ich schulde noch, negativ = zu viel überwiesen. */
+const einRest = e => cent(e.betrag - e.zahlungen.reduce((s, z) => cent(s + z.betrag), 0));
+const einBez = e => cent(e.betrag - einRest(e));
+function einLiefSalden(){
+  const m = new Map();
+  store.eingang.forEach(e => {
+    const key = e.lieferant.toLowerCase();
+    const g = m.get(key) || { key, name:e.lieferant || 'Ohne Lieferant', brutto:0, bezahlt:0, saldo:0, monate:new Map(), items:[] };
+    const mon = ym => g.monate.get(ym) || (g.monate.set(ym, { ym, soll:0, ist:0 }), g.monate.get(ym));
+    const a = mon(e.datum.slice(0,7)); a.soll = cent(a.soll + e.betrag);
+    e.zahlungen.forEach(z => { const b = mon(z.datum.slice(0,7)); b.ist = cent(b.ist + z.betrag); });
+    g.brutto = cent(g.brutto + e.betrag); g.bezahlt = cent(g.bezahlt + einBez(e));
+    g.items.push(e); m.set(key, g);
+  });
+  return [...m.values()].map(g => {
+    g.saldo = cent(g.brutto - g.bezahlt);
+    let kum = 0;
+    g.monateL = [...g.monate.values()].sort((a,b) => a.ym.localeCompare(b.ym))
+      .map(x => (kum = cent(kum + x.soll - x.ist), Object.assign(x, { kum }))).reverse();
+    g.items.sort((a,b) => b.datum.localeCompare(a.datum));
+    return g;
+  }).sort((a,b) => Math.abs(b.saldo) - Math.abs(a.saldo) || a.name.localeCompare(b.name, 'de'));
+}
+const einZu = new Set(); /* bewusst zugeklappte Lieferanten – alle anderen stehen offen */
+function renderEin(){
+  const alle = einLiefSalden(), nur = $('#einNur').checked, h = heute();
+  const zahlen = alle.reduce((s,g) => g.saldo > 0.005 ? cent(s + g.saldo) : s, 0);
+  const guth = alle.reduce((s,g) => g.saldo < -0.005 ? cent(s - g.saldo) : s, 0);
+  const spaet = store.eingang.filter(e => einRest(e) > 0.005 && e.faellig < h).reduce((s,e) => cent(s + einRest(e)), 0);
+  $('#einSum').innerHTML = '<span>Noch zu zahlen <b>' + eur.format(zahlen) + '</b></span>'
+    + (spaet > 0 ? '<span>davon überfällig <b style="color:var(--bad)">' + eur.format(spaet) + '</b></span>' : '')
+    + '<span>Zu viel überwiesen <b>' + eur.format(guth) + '</b></span>';
+  $('#einLief').innerHTML = alle.map(g => '<option value="' + esc(g.name) + '">').join('');
+  const view = alle.filter(g => !nur || Math.abs(g.saldo) > 0.005 || g.items.some(e => Math.abs(einRest(e)) > 0.005));
+  $('#einList').innerHTML = view.length ? view.map(g => {
+    const k = g.saldo > 0.005 ? ['off', eur.format(g.saldo) + ' zu zahlen']
+      : g.saldo < -0.005 ? ['zuv', eur.format(-g.saldo) + ' zu viel überwiesen'] : ['ok', 'ausgeglichen'];
+    const items = g.items.filter(e => !nur || Math.abs(einRest(e)) > 0.005);
+    return '<details class="sd" data-k="' + esc(g.key) + '"' + (einZu.has(g.key) ? '' : ' open') + '><summary><span class="nm">' + esc(g.name)
+      + '<small>Rechnungen ' + eur.format(g.brutto) + ' · bezahlt ' + eur.format(g.bezahlt) + '</small></span>'
+      + '<span class="sal ' + k[0] + '">' + k[1] + '</span></summary><div class="in">'
+      + '<h6>Rechnungen</h6>'
+      + items.map(e => {
+          const r = einRest(e);
+          const st = r < -0.005 ? ['zuv', eur.format(-r) + ' zu viel'] : r <= 0.005 ? ['ok', 'bezahlt']
+            : e.faellig < h ? ['late', eur.format(r) + ' offen · überfällig'] : [einBez(e) > 0.005 ? 'teil' : '', eur.format(r) + ' offen'];
+          return '<div class="iv"><span class="t">' + esc(e.nummer || 'ohne Nummer') + ' · ' + fmtDate(e.datum)
+            + '<small>' + eur.format(e.betrag) + ' · fällig ' + fmtDate(e.faellig) + (e.text ? ' · ' + esc(e.text) : '') + '</small></span>'
+            + '<span class="a ' + st[0] + '">' + st[1] + '</span>'
+            + '<button class="pill sm" type="button" data-ez="' + esc(e.id) + '">+ Zahlung</button>'
+            + '<button class="pill icon-btn sm" type="button" data-ee="' + esc(e.id) + '" aria-label="Bearbeiten">✎</button>'
+            + e.zahlungen.slice().sort((a,b) => a.datum.localeCompare(b.datum)).map(z =>
+                '<div class="pz"><span>' + fmtDate(z.datum) + (z.notiz ? ' · ' + esc(z.notiz) : '') + '</span><span>' + eur.format(z.betrag) + '</span>'
+                + '<button class="pill icon-btn sm" type="button" data-edz="' + esc(e.id) + '|' + esc(z.id) + '" aria-label="Zahlung löschen">✕</button></div>').join('')
+            + '</div>';
+        }).join('')
+      + '<h6>Verlauf je Monat</h6>'
+      + '<table><thead><tr><th>Monat</th><th>Rechnungen</th><th>Bezahlt</th><th>Saldo kumuliert</th></tr></thead><tbody>'
+      + g.monateL.map(x => '<tr><td>' + monatsName(x.ym) + '</td><td>' + eur.format(x.soll) + '</td><td>' + eur.format(x.ist)
+        + '</td><td class="' + (x.kum > 0.005 ? 'pos' : x.kum < -0.005 ? 'neg' : '') + '">' + eur.format(x.kum) + '</td></tr>').join('')
+      + '</tbody></table></div></details>';
+  }).join('') : '<p class="hint">' + (alle.length ? 'Alles ausgeglichen.' : 'Noch keine Eingangsrechnung erfasst.') + '</p>';
+}
+function einOeffnen(){ renderEin(); if (!$('#dlgEinL').open) $('#dlgEinL').showModal(); }
+$('#einBtn').addEventListener('click', einOeffnen);
+$('#einNur').addEventListener('change', renderEin);
+$('#einList').addEventListener('toggle', ev => {
+  const k = ev.target.dataset && ev.target.dataset.k; if (k == null) return;
+  ev.target.open ? einZu.delete(k) : einZu.add(k);
+}, true);
+$('#einList').addEventListener('click', ev => {
+  const b = ev.target.closest('button'); if (!b) return;
+  if (b.dataset.ez) einZahlDlg(b.dataset.ez);
+  else if (b.dataset.ee) einDlg(b.dataset.ee);
+  else if (b.dataset.edz) {
+    const [eid, zid] = b.dataset.edz.split('|');
+    const e = store.eingang.find(x => x.id === eid); if (!e) return;
+    if (!confirm('Diese Zahlung löschen?')) return;
+    e.zahlungen = e.zahlungen.filter(z => z.id !== zid); save(); renderEin();
+  }
+});
+
+let editEin = null, einFaelligAuto = true;
+function einDlg(id){
+  editEin = id || null;
+  const e = id ? store.eingang.find(x => x.id === id) : null;
+  const E = $('#formEin').elements;
+  $('#formEin').reset(); $('#errEin').hidden = true;
+  $('#dlgEinTitle').textContent = e ? 'Eingangsrechnung bearbeiten' : 'Neue Eingangsrechnung';
+  $('#einDel').hidden = !e;
+  E.lieferant.value = e ? e.lieferant : '';
+  E.nummer.value = e ? e.nummer : '';
+  E.datum.value = e ? e.datum : heute();
+  E.faellig.value = e ? e.faellig : plus(heute(), 14);
+  einFaelligAuto = !e;
+  E.betrag.value = e ? f2(e.betrag) : '';
+  E.ust.value = e && e.ust ? f2(e.ust) : '';
+  E.text.value = e ? e.text : '';
+  $('#dlgEin').showModal();
+  setTimeout(() => E.lieferant.focus(), 60);
+}
+$('#einNeu').addEventListener('click', () => einDlg(null));
+$('#formEin').elements.faellig.addEventListener('input', () => { einFaelligAuto = false; });
+$('#formEin').elements.datum.addEventListener('change', ev => {
+  if (einFaelligAuto && ev.target.value) $('#formEin').elements.faellig.value = plus(ev.target.value, 14);
+});
+$('#einDel').addEventListener('click', () => {
+  const e = store.eingang.find(x => x.id === editEin); if (!e) return;
+  if (!confirm('Eingangsrechnung ' + (e.nummer || '') + ' von ' + e.lieferant + ' samt Zahlungen löschen?')) return;
+  store.eingang = store.eingang.filter(x => x.id !== editEin);
+  save(); $('#dlgEin').close(); renderEin(); toast('Eingangsrechnung gelöscht');
+});
+$('#formEin').addEventListener('submit', ev => {
+  const E = ev.target.elements;
+  const fehler = m => { ev.preventDefault(); $('#errEin').textContent = m; $('#errEin').hidden = false; };
+  const lief = E.lieferant.value.trim(), nr = E.nummer.value.trim(), b = num(E.betrag.value);
+  if (!lief) return fehler('Bitte den Dienstleister angeben.');
+  if (!E.datum.value) return fehler('Bitte das Rechnungsdatum angeben.');
+  if (b == null || b === 0) return fehler('Bitte einen Bruttobetrag ungleich null angeben.');
+  if (nr && store.eingang.some(x => x.id !== editEin && x.nummer.toLowerCase() === nr.toLowerCase() && x.lieferant.toLowerCase() === lief.toLowerCase()))
+    return fehler('Diese Rechnungsnummer ist für diesen Dienstleister schon erfasst.');
+  const pl = { lieferant:lief, nummer:nr, datum:E.datum.value, faellig:E.faellig.value || E.datum.value,
+    betrag:cent(b), ust:cent(num(E.ust.value) ?? 0), text:E.text.value.trim() };
+  if (editEin) Object.assign(store.eingang.find(x => x.id === editEin), pl);
+  else store.eingang.push(normEin(Object.assign({ id:uid(), zahlungen:[] }, pl)));
+  save(); renderEin(); toast(editEin ? 'Eingangsrechnung gespeichert' : 'Eingangsrechnung erfasst');
+});
+
+let zahlEin = null;
+function einZahlDlg(id){
+  const e = store.eingang.find(x => x.id === id); if (!e) return;
+  zahlEin = id;
+  const E = $('#formEinZ').elements, r = einRest(e);
+  $('#formEinZ').reset(); $('#errEinZ').hidden = true;
+  $('#einZInfo').innerHTML = '<b>' + esc(e.lieferant) + '</b> · ' + esc(e.nummer || 'ohne Nummer') + '<br>Rechnung ' + eur.format(e.betrag)
+    + ' · bisher bezahlt ' + eur.format(einBez(e)) + ' · noch offen ' + eur.format(r)
+    + '<br><span style="color:var(--text-3)">Teilbetrag oder mehr als offen? Beides ist erlaubt – der Rest bzw. das Guthaben steht im Saldo.</span>';
+  E.datum.value = heute();
+  E.betrag.value = r > 0.005 ? f2(r) : '';
+  $('#dlgEinZ').showModal();
+  setTimeout(() => E.betrag.focus(), 60);
+}
+$('#formEinZ').addEventListener('submit', ev => {
+  const e = store.eingang.find(x => x.id === zahlEin); if (!e) return;
+  const E = ev.target.elements, b = num(E.betrag.value);
+  if (!E.datum.value || b == null || b === 0) {
+    ev.preventDefault(); $('#errEinZ').textContent = 'Bitte Datum und einen Betrag ungleich null angeben.'; $('#errEinZ').hidden = false; return;
+  }
+  e.zahlungen.push({ id:uid(), datum:E.datum.value, betrag:cent(b), notiz:E.notiz.value.trim() });
+  save(); renderEin(); toast('Zahlung erfasst');
+});
 
 /* ═══════ Ansicht ═══════ */
 let filter = 'offen', query = '', clientF = '', jahrF = '', selId = null;
