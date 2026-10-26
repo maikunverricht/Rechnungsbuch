@@ -377,6 +377,27 @@ html[data-theme="light"] .wipe{mix-blend-mode:multiply}
 .linkl button small{display:block;font-family:var(--mono);font-size:11px;color:var(--text-3)}
 .linkl h6{margin:10px 0 0;font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--text-3);font-weight:400}
 
+/* Offene Posten in beide Richtungen */
+.bilanz{display:grid;grid-template-columns:1fr 1fr auto;gap:10px;margin-top:20px}
+.bil{border:1px solid var(--glass-edge);border-radius:18px;background:var(--glass);padding:14px 16px;cursor:pointer;text-align:left;
+  color:var(--text);font:inherit;display:flex;flex-direction:column;gap:6px;transition:border-color .2s,box-shadow .2s;min-width:0}
+.bil:hover{border-color:var(--line-hi)}
+.bil[aria-current="true"]{box-shadow:0 0 0 1px var(--bc),var(--shadow-lg);border-color:var(--bc)}
+.bil .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--text-3);display:flex;gap:8px;align-items:center}
+.bil .k i{width:8px;height:8px;border-radius:50%;background:var(--bc);flex:none}
+.bil .v{font-size:26px;letter-spacing:-.03em;font-weight:700;font-variation-settings:'wdth' 110;line-height:1.1}
+.bil .sub{font-family:var(--mono);font-size:11.5px;color:var(--text-2);display:flex;flex-wrap:wrap;gap:4px 12px}
+.bil .sub .late{color:var(--bad)}
+.bil ul{list-style:none;margin:4px 0 0;padding:0;font-size:13px;color:var(--text-2)}
+.bil li{display:flex;gap:10px;padding:3px 0;border-top:1px solid var(--line)}
+.bil li:first-child{border-top:0}
+.bil li span:first-child{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bil li span:last-child{font-family:var(--mono);font-size:12px;white-space:nowrap}
+.bil li.neg span:last-child{color:var(--info)}
+.bil.net{cursor:default;justify-content:center;min-width:170px}
+.bil.net .v.pos{color:var(--ok)} .bil.net .v.neg{color:var(--bad)}
+@media (max-width:760px){ .bilanz{grid-template-columns:1fr} .bil.net{min-width:0} }
+
 /* Salden je Auftraggeber */
 .sd{border:1px solid var(--line);border-radius:14px;background:var(--glass);margin-top:10px;overflow:hidden}
 .sd summary{display:flex;align-items:center;gap:12px;padding:12px 15px;cursor:pointer;list-style:none;flex-wrap:wrap}
@@ -596,6 +617,8 @@ html[data-theme="light"]{
     </div>
     <div class="kpis" id="kpis"></div>
   </section>
+
+  <section class="bilanz" id="bilanz" aria-label="Offene Posten in beide Richtungen"></section>
 
   <div id="ausView">
   <section class="tools" aria-label="Filter">
@@ -2430,6 +2453,7 @@ const einZu = new Set(); /* bewusst zugeklappte Lieferanten – alle anderen ste
 function renderEin(){
   if (VIEW === 'ein') renderEinKPIs();
   renderTray('lief');
+  renderBilanz();
   const alle = einLiefSalden(), nur = $('#einNur').checked, h = heute();
   const zahlen = alle.reduce((s,g) => g.saldo > 0.005 ? cent(s + g.saldo) : s, 0);
   const guth = alle.reduce((s,g) => g.saldo < -0.005 ? cent(s - g.saldo) : s, 0);
@@ -2480,6 +2504,7 @@ function setView(v){
   const eb = $('.head .eyebrow'); if (eb) eb.textContent = VIEW === 'ein' ? 'Eingangsrechnungen · Zu zahlen' : 'Rechnungen · Offene Posten';
   renderKPIs();
   if (VIEW === 'ein') renderEin();
+  renderBilanz();
 }
 /* ───────── Ansicht wählen: Meniskus-Dock wie im Kontor ───────── */
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -2915,6 +2940,45 @@ $('#formPosten').addEventListener('submit', ev => {
     [...store.rechnungen, ...store.eingang].forEach(r => r.zahlungen.forEach(z => { if (z.postenId === p.id) z.datum = p.datum; }));
   } else store.posten.push(normPosten(Object.assign({ id:uid() }, pl)));
   save(); neu(); toast(editPosten ? 'Zahlung gespeichert' : 'Zahlung erfasst – jetzt Rechnungen darauf ziehen');
+});
+
+/* ═══════ Offene Posten in beide Richtungen ═══════
+   Je Partei der Saldo (Rechnungen − Zahlungen, inkl. noch nicht zugeordneter Zahlungen).
+   Positive Salden sind offen, negative sind Guthaben (zu viel bezahlt). */
+function renderBilanz(){
+  const el = $('#bilanz'); if (!el) return;
+  const h = heute();
+  const aus = salden(), ein = einLiefSalden();
+  const sum = (l, f) => l.reduce((s, g) => f(g.saldo) ? cent(s + g.saldo) : s, 0);
+  const fordern = sum(aus, v => v > 0.005), gutK = -sum(aus, v => v < -0.005);
+  const schulden = sum(ein, v => v > 0.005), gutL = -sum(ein, v => v < -0.005);
+  const spaetA = store.rechnungen.filter(r => r.festgeschrieben && zustand(r) === 'ueberfaellig').reduce((s,r) => cent(s + summe(r).rest), 0);
+  const spaetE = store.eingang.filter(e => einRest(e) > 0.005 && e.faellig < h).reduce((s,e) => cent(s + einRest(e)), 0);
+  const liste = l => {
+    const x = l.filter(g => Math.abs(g.saldo) > 0.005);
+    if (!x.length) return '<ul><li><span>alles ausgeglichen</span><span></span></li></ul>';
+    return '<ul>' + x.slice(0,4).map(g => '<li class="' + (g.saldo < 0 ? 'neg' : '') + '"><span>' + esc(g.name) + '</span><span>'
+      + (g.saldo < 0 ? eur.format(-g.saldo) + ' Guthaben' : eur.format(g.saldo)) + '</span></li>').join('')
+      + (x.length > 4 ? '<li><span>+ ' + (x.length - 4) + ' weitere</span><span></span></li>' : '') + '</ul>';
+  };
+  const netto = cent(fordern - gutK - (schulden - gutL));
+  el.innerHTML =
+      '<button type="button" class="bil" data-bv="aus" style="--bc:#E0A21F" aria-current="' + (VIEW === 'aus') + '">'
+    + '<span class="k"><i></i>Kunden schulden mir</span><span class="v">' + eur.format(fordern) + '</span>'
+    + '<span class="sub">' + (spaetA > 0.005 ? '<span class="late">' + eur.format(spaetA) + ' überfällig</span>' : '<span>nichts überfällig</span>')
+    + (gutK > 0.005 ? '<span>' + eur.format(gutK) + ' zu viel erhalten</span>' : '') + '</span>' + liste(aus) + '</button>'
+    + '<button type="button" class="bil" data-bv="ein" style="--bc:#3F6FCB" aria-current="' + (VIEW === 'ein') + '">'
+    + '<span class="k"><i></i>Ich schulde Dienstleistern</span><span class="v">' + eur.format(schulden) + '</span>'
+    + '<span class="sub">' + (spaetE > 0.005 ? '<span class="late">' + eur.format(spaetE) + ' überfällig</span>' : '<span>nichts überfällig</span>')
+    + (gutL > 0.005 ? '<span>' + eur.format(gutL) + ' zu viel überwiesen</span>' : '') + '</span>' + liste(ein) + '</button>'
+    + '<div class="bil net"><span class="k">Unterm Strich</span><span class="v ' + (netto > 0.005 ? 'pos' : netto < -0.005 ? 'neg' : '') + '">'
+    + (netto > 0.005 ? '+' : '') + eur.format(netto) + '</span><span class="sub"><span>' + (netto > 0.005 ? 'kommt noch herein' : netto < -0.005 ? 'geht noch hinaus' : 'ausgeglichen') + '</span></span>'
+    + '<span class="sub" style="color:var(--text-3)"><span>Forderungen − Schulden, Guthaben eingerechnet</span></span></div>';
+}
+$('#bilanz').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-bv]'); if (!b) return;
+  const i = b.dataset.bv === 'ein' ? 1 : 0;
+  if (typeof Dock !== 'undefined') Dock.gehe(i); else setView(b.dataset.bv);
 });
 
 /* ═══════ Ansicht ═══════ */
@@ -3858,7 +3922,7 @@ function entwuerfeNachziehen(){
   });
   if (ch) save();
 }
-function neu(){ sammleStamm(); entwuerfeNachziehen(); renderSelects(); renderKPIs(); renderGrid(); renderDetail(); renderTray('kunde'); if (VIEW === 'ein') renderEin(); }
+function neu(){ sammleStamm(); entwuerfeNachziehen(); renderSelects(); renderKPIs(); renderGrid(); renderDetail(); renderTray('kunde'); if (VIEW === 'ein') renderEin(); renderBilanz(); }
 
 async function frisch(){
   abMode = await ladeAb();
