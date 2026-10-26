@@ -146,11 +146,6 @@ h1 em{font-style:italic;font-weight:600;background:linear-gradient(94deg,var(--e
 .seg button{height:32px;padding:0 13px;border:0;border-radius:100px;background:transparent;cursor:pointer;font-size:13.5px;
   color:var(--text-2);transition:background var(--t-s),color var(--t-s)}
 .seg button[aria-pressed="true"]{background:var(--amber);color:var(--ink);font-weight:600}
-.vseg{display:flex;padding:4px;border-radius:16px;border:1px solid var(--line);background:var(--glass);gap:4px;margin-top:22px}
-.vseg button{flex:1;min-height:44px;padding:6px 14px;border:0;border-radius:12px;background:transparent;cursor:pointer;font-size:14.5px;
-  color:var(--text-2);transition:background var(--t-s),color var(--t-s);line-height:1.25}
-.vseg button small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.75;margin-top:2px}
-.vseg button[aria-pressed="true"]{background:var(--amber);color:var(--ink);font-weight:600}
 #einView .sd{background:var(--glass-2)}
 .selwrap{position:relative}
 .selwrap select{height:38px;border-radius:100px;border:1px solid var(--line);background:var(--glass);padding:0 34px 0 15px;
@@ -293,6 +288,60 @@ label input:focus,label select:focus,label textarea:focus{border-color:var(--lin
 .box{border:1px solid var(--line);border-radius:13px;background:var(--glass);padding:13px 15px;font-size:14px;color:var(--text-2);line-height:1.5}
 .box + .box{margin-top:10px}
 .box b{color:var(--text)}
+
+/* ── Dock (aus dem Kontor) ── */
+:root{--dacc:#F2B33D;--plate-1:#1B2633;--plate-2:#0B1016;--plate-rim:#FFFFFF}
+html[data-theme="light"]{--dacc:#E0A21F;--plate-1:#FFFFFF;--plate-2:#E8EDF5;--plate-rim:#FFFFFF}
+footer.site{padding-bottom:calc(110px + env(safe-area-inset-bottom))!important}
+main{padding-bottom:120px!important}
+.toast{bottom:calc(104px + env(safe-area-inset-bottom))!important;opacity:0;visibility:hidden;transition:transform .3s,opacity .3s,visibility .3s}
+.toast.show{opacity:1;visibility:visible}
+.dock{position:fixed;z-index:20;left:50%;bottom:calc(16px + env(safe-area-inset-bottom));transform:translateX(-50%);
+  touch-action:none;filter:drop-shadow(var(--shadow-lg));transition:opacity .35s,transform .35s}
+.dock-wash{position:absolute;width:300px;height:190px;left:0;top:0;pointer-events:none;
+  transform:translate(-50%,-14%);opacity:.3;transition:opacity .4s;
+  background:radial-gradient(circle,var(--dacc) 0%,transparent 66%);filter:blur(14px)}
+.dock-blur{position:absolute;inset:0;-webkit-backdrop-filter:blur(16px) saturate(150%);
+  backdrop-filter:blur(16px) saturate(150%);pointer-events:none}
+.dock-skin{position:absolute;inset:0;overflow:visible;pointer-events:none}
+.dock-plate{fill:url(#plateFill);stroke:url(#plateRim);stroke-width:1}
+#plateFill stop:first-child{stop-color:var(--plate-1)}
+#plateFill stop:last-child{stop-color:var(--plate-2)}
+#plateRim stop{stop-color:var(--plate-rim)}
+.dock-row{position:absolute;display:flex;align-items:center}
+.dock-btn{height:100%;display:grid;place-items:center;background:none;border:0;padding:0;cursor:pointer;
+  color:var(--text-2);transition:color .25s,opacity .3s,transform .3s}
+.dock-btn svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.dock-btn:hover{color:var(--text)}
+.dock-btn.is-active{opacity:0;transform:scale(.6);pointer-events:none}
+.dock-btn:focus-visible{outline:2px solid var(--dacc);outline-offset:-4px;border-radius:12px}
+.dock-bead{position:absolute;left:0;top:0;border-radius:50%;display:grid;place-items:center;
+  color:#0A0F16;cursor:grab;touch-action:none;
+  background:radial-gradient(circle at 36% 26%,#fff6 0%,#fff0 46%),var(--dacc);
+  box-shadow:0 0 26px -2px var(--dacc),0 6px 14px rgba(0,0,0,.28),inset 0 -6px 14px rgba(0,0,0,.18);
+  transition:background .45s,box-shadow .45s}
+.dock-bead:active{cursor:grabbing}
+.dock-bead:focus-visible{outline:2px solid var(--dacc);outline-offset:3px}
+.dock-bead svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.dock-name{position:absolute;left:0;font-family:var(--mono);font-size:9.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--dacc);white-space:nowrap;transform:translateX(-50%);
+  pointer-events:none;transition:color .45s}
+.dock-hint{position:absolute;left:50%;top:-22px;margin:0;transform:translateX(-50%);white-space:nowrap;
+  transition:opacity .5s;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--text-3);opacity:.7;pointer-events:none}
+html[data-theme="light"] .dock-name{color:var(--text-2)}
+html[data-theme="light"] .dock-bead{color:#11202B;
+  box-shadow:0 0 22px -4px var(--dacc),0 8px 18px rgba(20,36,60,.22),inset 0 -6px 14px rgba(0,0,0,.10)}
+html[data-theme="light"] .dock-wash{opacity:.22}
+html[data-theme="light"] .dock-blur{-webkit-backdrop-filter:blur(18px) saturate(1.6);backdrop-filter:blur(18px) saturate(1.6)}
+.wipe{position:fixed;left:0;top:0;width:520px;height:520px;border-radius:50%;z-index:18;pointer-events:none;
+  transform:translate(-50%,-50%) scale(.2);opacity:0;
+  background:radial-gradient(circle,var(--dacc) 0%,transparent 62%)}
+.wipe.go{animation:wipe .9s cubic-bezier(.2,.8,.3,1) both}
+html[data-theme="light"] .wipe{mix-blend-mode:multiply}
+@keyframes wipe{0%{opacity:0;transform:translate(-50%,-50%) scale(.15)}
+                35%{opacity:.16}
+                100%{opacity:0;transform:translate(-50%,-50%) scale(3.4)}}
 
 /* Salden je Auftraggeber */
 .sd{border:1px solid var(--line);border-radius:14px;background:var(--glass);margin-top:10px;overflow:hidden}
@@ -514,11 +563,6 @@ html[data-theme="light"]{
     <div class="kpis" id="kpis"></div>
   </section>
 
-  <nav class="vseg" id="viewSeg" aria-label="Ansicht">
-    <button type="button" data-v="aus" aria-pressed="true">Rechnungen an Kunden<small>Ausgang · ich stelle in Rechnung</small></button>
-    <button type="button" data-v="ein" aria-pressed="false">Rechnungen von Dienstleistern<small>Eingang · ich bezahle</small></button>
-  </nav>
-
   <div id="ausView">
   <section class="tools" aria-label="Filter">
     <div class="search">
@@ -552,6 +596,35 @@ html[data-theme="light"]{
     <div id="einList"></div>
   </div>
 </main>
+
+<nav class="dock" id="dock" aria-label="Ansicht wählen">
+  <div class="dock-wash" id="wash" aria-hidden="true"></div>
+  <div class="dock-blur" id="dblur" aria-hidden="true"></div>
+  <svg class="dock-skin" id="skin" aria-hidden="true">
+    <defs>
+      <linearGradient id="plateFill" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#1B2633" stop-opacity=".88"/>
+        <stop offset="1" stop-color="#0B1016" stop-opacity=".92"/>
+      </linearGradient>
+      <linearGradient id="plateRim" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#FFFFFF" stop-opacity=".26"/>
+        <stop offset=".45" stop-color="#FFFFFF" stop-opacity=".07"/>
+        <stop offset="1" stop-color="#FFFFFF" stop-opacity=".03"/>
+      </linearGradient>
+    </defs>
+    <path class="dock-plate" id="plate" d=""/>
+  </svg>
+  <div class="dock-row" id="drow">
+    <button class="dock-btn is-active" type="button" data-v="aus" data-label="Ausgang" data-acc="#F2B33D" data-acc-hell="#E0A21F" aria-label="Ausgang – Rechnungen an Kunden">
+      <svg viewBox="0 0 24 24"><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5"/><path d="M9 14h6M12.5 11.5 15 14l-2.5 2.5"/></svg></button>
+    <button class="dock-btn" type="button" data-v="ein" data-label="Eingang" data-acc="#8FB8E8" data-acc-hell="#3F6FCB" aria-label="Eingang – Rechnungen von Dienstleistern">
+      <svg viewBox="0 0 24 24"><path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3v5h5"/><path d="M15 14H9M11.5 11.5 9 14l2.5 2.5"/></svg></button>
+  </div>
+  <div class="dock-name" id="dockName">Ausgang</div>
+  <div class="dock-bead" id="bead" role="slider" tabindex="0" aria-label="Ansicht, mit den Pfeiltasten wechseln"
+       aria-valuemin="1" aria-valuemax="2" aria-valuenow="1" aria-valuetext="Ausgang"></div>
+  <p class="dock-hint" id="dhint">Tippen – oder die Kugel ziehen</p>
+</nav>
 
 <footer class="site">
   <span>© <span id="yr"></span> Maik Unverricht · Rechnungsbuch</span>
@@ -2296,14 +2369,167 @@ try { if (localStorage.getItem('rb-view') === 'ein') VIEW = 'ein'; } catch(e){}
 function setView(v){
   VIEW = v === 'ein' ? 'ein' : 'aus';
   try { localStorage.setItem('rb-view', VIEW); } catch(e){}
-  $$('#viewSeg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === VIEW)));
   $('#ausView').hidden = VIEW !== 'aus';
   $('#einView').hidden = VIEW !== 'ein';
   const eb = $('.head .eyebrow'); if (eb) eb.textContent = VIEW === 'ein' ? 'Eingangsrechnungen · Zu zahlen' : 'Rechnungen · Offene Posten';
   renderKPIs();
   if (VIEW === 'ein') renderEin();
 }
-$$('#viewSeg button').forEach(b => b.addEventListener('click', () => setView(b.dataset.v)));
+/* ───────── Ansicht wählen: Meniskus-Dock wie im Kontor ───────── */
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const DOCK = {
+  schmalAb:620, feldBreit:52, feldSchmal:44, randBreit:52, randSchmal:30,
+  eckradius:22, eckradiusSchmal:18, hoehe:62, hoeheSchmal:54,
+  kugel:25, kugelSchmal:20, kugelTiefe:12, kugelTiefeSchmal:10, kugelLuft:7, kugelLuftSchmal:6,
+  reichweite:78, reichweiteSchmal:58,
+  federHaerte:210, federDaempfung:28, federRuheWeg:0.15, federRuheTempo:0.60,
+  neigungBei:900, neigungHub:0.95, neigungZug:0.22, neigungSeite:0.38
+};
+const Dock = (function(){
+  const K = DOCK;
+  const dock=$('#dock'), row=$('#drow'), skin=$('#skin'), plate=$('#plate'),
+        blur=$('#dblur'), wash=$('#wash'), bead=$('#bead'), nameEl=$('#dockName'), hint=$('#dhint');
+  const btns=[...row.querySelectorAll('.dock-btn')];
+  const G={}, centers=[];
+  let active=0, x=0, vx=0, ziel=0, zieht=false, raf=null, last=0;
+  const kannSchneiden = window.CSS && CSS.supports && CSS.supports('clip-path','path("M0 0Z")');
+  if (!kannSchneiden) blur.style.display='none';
+
+  function masse(){
+    const schmal = innerWidth < K.schmalAb;
+    G.item=schmal?K.feldSchmal:K.feldBreit; G.pad=schmal?K.randSchmal:K.randBreit;
+    G.R=schmal?K.eckradiusSchmal:K.eckradius;
+    G.rb=schmal?K.kugelSchmal:K.kugel; G.h=schmal?K.kugelTiefeSchmal:K.kugelTiefe;
+    G.rs=G.rb+(schmal?K.kugelLuftSchmal:K.kugelLuft);
+    G.xi=Math.sqrt(G.rs*G.rs-G.h*G.h);
+    G.H=schmal?K.hoeheSchmal:K.hoehe; G.top=G.rb+G.h+9;
+    G.reach=schmal?K.reichweiteSchmal:K.reichweite;
+    G.W=btns.length*G.item+2*G.pad; G.Ht=G.H+G.top;
+  }
+  function aufbauen(){
+    masse();
+    dock.style.width=G.W+'px'; dock.style.height=G.Ht+'px';
+    skin.setAttribute('viewBox','0 0 '+G.W+' '+G.Ht);
+    skin.setAttribute('width',G.W); skin.setAttribute('height',G.Ht);
+    row.style.top=G.top+'px'; row.style.left=G.pad+'px';
+    row.style.height=G.H+'px'; row.style.width=(btns.length*G.item)+'px';
+    btns.forEach((b,i) => { b.style.width=G.item+'px'; centers[i]=G.pad+G.item*i+G.item/2; });
+    bead.style.width=bead.style.height=(G.rb*2)+'px';
+    nameEl.style.top=(G.top+G.H-17)+'px';
+    x=ziel=centers[active]; vx=0;
+    zeichnen();
+  }
+  function pfad(cx, tempo){
+    const t=G.top;
+    const q=Math.max(-1,Math.min(1,tempo/K.neigungBei)), mag=Math.abs(q);
+    const hub=G.rb*K.neigungHub*(1+K.neigungZug*mag);
+    const rL=G.reach*(1+.06*mag+K.neigungSeite*q), rR=G.reach*(1+.06*mag-K.neigungSeite*q);
+    const xl=cx-G.xi, xr=cx+G.xi;
+    const x0=Math.min(Math.max(G.R,cx-rL), xl-2);
+    const x1=Math.max(Math.min(G.W-G.R,cx+rR), xr+2);
+    const weich=lauf => Math.max(.12, Math.min(1, lauf/(G.reach*.55)));
+    const hL=hub*weich(xl-x0), hR=hub*weich(x1-xr);
+    const offL=hL*G.h/G.xi, offR=hR*G.h/G.xi;
+    return 'M '+G.R+' '+t+' L '+x0+' '+t+
+      ' C '+(x0+.55*(xl-x0))+' '+t+' '+(xl-offL)+' '+(t-hL)+' '+xl+' '+t+
+      ' A '+G.rs+' '+G.rs+' 0 0 0 '+xr+' '+t+
+      ' C '+(xr+offR)+' '+(t-hR)+' '+(x1-.55*(x1-xr))+' '+t+' '+x1+' '+t+
+      ' L '+(G.W-G.R)+' '+t+' A '+G.R+' '+G.R+' 0 0 1 '+G.W+' '+(t+G.R)+
+      ' L '+G.W+' '+(t+G.H-G.R)+' A '+G.R+' '+G.R+' 0 0 1 '+(G.W-G.R)+' '+(t+G.H)+
+      ' L '+G.R+' '+(t+G.H)+' A '+G.R+' '+G.R+' 0 0 1 0 '+(t+G.H-G.R)+
+      ' L 0 '+(t+G.R)+' A '+G.R+' '+G.R+' 0 0 1 '+G.R+' '+t+' Z';
+  }
+  function zeichnen(){
+    const p=pfad(x,vx);
+    plate.setAttribute('d',p);
+    if (kannSchneiden) blur.style.clipPath='path("'+p+'")';
+    bead.style.left=x+'px'; bead.style.top=(G.top-G.h)+'px'; bead.style.transform='translate(-50%,-50%)';
+    nameEl.style.left=x+'px';
+    wash.style.left=x+'px'; wash.style.top=(G.top+G.H*.28)+'px';
+  }
+  function schritt(ts){
+    const dt=Math.min(.032,(ts-last)/1000||.016); last=ts;
+    vx += (-K.federHaerte*(x-ziel) - K.federDaempfung*vx)*dt;
+    x += vx*dt; zeichnen();
+    if (zieht || Math.abs(x-ziel)>K.federRuheWeg || Math.abs(vx)>K.federRuheTempo) raf=requestAnimationFrame(schritt);
+    else { x=ziel; vx=0; zeichnen(); raf=null; }
+  }
+  function feder(){
+    if (reduce) { x=ziel; vx=0; zeichnen(); return; }
+    if (raf===null) { last=performance.now(); raf=requestAnimationFrame(schritt); }
+  }
+  function naechste(px){
+    let best=0, bd=Infinity;
+    centers.forEach((c,i) => { const d=Math.abs(c-px); if (d<bd) { bd=d; best=i; } });
+    return best;
+  }
+  function farbe(){
+    const b=btns[active], hell=root.dataset.theme==='light';
+    root.style.setProperty('--dacc', hell ? b.dataset.accHell : b.dataset.acc);
+  }
+  const wipeEl=document.createElement('div');
+  wipeEl.className='wipe'; wipeEl.setAttribute('aria-hidden','true');
+  document.body.appendChild(wipeEl);
+  function welle(){
+    if (reduce) return;
+    const r=bead.getBoundingClientRect();
+    wipeEl.style.left=(r.left+r.width/2)+'px'; wipeEl.style.top=(r.top+r.height/2)+'px';
+    wipeEl.classList.remove('go'); void wipeEl.offsetWidth; wipeEl.classList.add('go');
+  }
+  /* Während die Ansicht selbst hinfährt, darf das Wischen die Kugel
+     nicht zurückholen — die Sperre fällt, wenn das Scrollen ruht. */
+  function setzen(i, hinfahren, still){
+    if (i<0 || i>=btns.length) return;
+    const anders = i!==active || !bead.firstChild;
+    active=i;
+    btns.forEach((el,j) => el.classList.toggle('is-active', j===i));
+    farbe();
+    nameEl.textContent=btns[i].dataset.label;
+    bead.setAttribute('aria-valuenow', i+1);
+    bead.setAttribute('aria-valuetext', btns[i].dataset.label);
+    if (anders) { bead.innerHTML=btns[i].querySelector('svg').outerHTML; if (!still) welle(); }
+    if (hinfahren) setView(btns[i].dataset.v);
+  }
+  let getippt=false;
+  function hinweisWeg(){ if (!getippt) { getippt=true; hint.style.opacity=0; } }
+
+  btns.forEach((b,i) => b.addEventListener('click', () => { hinweisWeg(); ziel=centers[i]; setzen(i,true); feder(); }));
+  bead.addEventListener('pointerdown', e => {
+    zieht=true; hinweisWeg(); e.preventDefault();
+    try { bead.setPointerCapture(e.pointerId); } catch (err) {}
+    feder();
+  });
+  bead.addEventListener('pointermove', e => {
+    if (!zieht) return;
+    const r=dock.getBoundingClientRect();
+    ziel=Math.max(centers[0], Math.min(centers[centers.length-1], e.clientX-r.left));
+    const n=naechste(ziel);
+    if (n!==active) setzen(n,false);
+  });
+  function loslassen(){
+    if (!zieht) return;
+    zieht=false;
+    const n=naechste(ziel);
+    ziel=centers[n]; x=centers[n]; vx=0; zeichnen();
+    setzen(n,true); feder();
+  }
+  bead.addEventListener('pointerup', loslassen);
+  bead.addEventListener('pointercancel', loslassen);
+  bead.addEventListener('keydown', e => {
+    let n=active;
+    if (e.key==='ArrowRight') n=Math.min(btns.length-1, active+1);
+    else if (e.key==='ArrowLeft') n=Math.max(0, active-1);
+    else return;
+    e.preventDefault(); e.stopPropagation(); hinweisWeg(); ziel=centers[n]; setzen(n,true); feder();
+  });
+
+
+  addEventListener('resize', aufbauen);
+  new MutationObserver(farbe).observe(root, { attributes:true, attributeFilter:['data-theme'] });
+  return { aufbauen, setzen, get active(){ return active; },
+           gehe(i){ hinweisWeg(); ziel=centers[i]; setzen(i,true); feder(); } };
+})();
+
 function renderEinKPIs(){
   const h = heute(), alle = einLiefSalden();
   const zahlen = alle.reduce((s,g) => g.saldo > 0.005 ? cent(s + g.saldo) : s, 0);
@@ -3375,6 +3601,7 @@ async function boot(){
   ladeZeit();
   neu();
   setView(VIEW);
+  Dock.aufbauen(); Dock.setzen(VIEW === 'ein' ? 1 : 0, false, true); Dock.aufbauen();
   if (!EIN().absender.name) {
     toast('Zuerst die Einstellungen ausfüllen – ohne Absender lässt sich keine Rechnung festschreiben.');
     setTimeout(setDlg, 700);
