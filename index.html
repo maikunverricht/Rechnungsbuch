@@ -263,6 +263,11 @@ dialog::backdrop{background:color-mix(in srgb,#04070B 72%,transparent);-webkit-b
 .sheet footer .pill:last-child{margin-left:auto}
 .form{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
 .form .wide{grid-column:1/-1}
+.form .row{grid-column:1/-1;display:grid;gap:14px;min-width:0}
+.form .row.r2{grid-template-columns:1fr 1fr}
+.form .row.r3{grid-template-columns:minmax(0,.9fr) minmax(0,2fr) minmax(0,.8fr)}
+.form .row > label{min-width:0}
+.form input[type=date]{min-width:0;-webkit-appearance:none;appearance:none}
 .form h5{grid-column:1/-1;margin:6px 0 -4px;font-size:13px;font-family:var(--mono);letter-spacing:.14em;
   text-transform:uppercase;color:var(--text-3);font-weight:400}
 label{display:flex;flex-direction:column;gap:6px;font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;
@@ -282,6 +287,26 @@ label input:focus,label select:focus,label textarea:focus{border-color:var(--lin
 .box{border:1px solid var(--line);border-radius:13px;background:var(--glass);padding:13px 15px;font-size:14px;color:var(--text-2);line-height:1.5}
 .box + .box{margin-top:10px}
 .box b{color:var(--text)}
+
+/* Salden je Auftraggeber */
+.sd{border:1px solid var(--line);border-radius:14px;background:var(--glass);margin-top:10px;overflow:hidden}
+.sd summary{display:flex;align-items:center;gap:12px;padding:12px 15px;cursor:pointer;list-style:none;flex-wrap:wrap}
+.sd summary::-webkit-details-marker{display:none}
+.sd .nm{flex:1;min-width:140px;font-weight:600;font-size:15px}
+.sd .nm small{display:block;font-family:var(--mono);font-size:11px;color:var(--text-3);font-weight:400;margin-top:2px}
+.sd .sal{font-family:var(--mono);font-size:13px;padding:4px 10px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.sd .sal.off{color:var(--warn)} .sd .sal.zuv{color:var(--info)} .sd .sal.ok{color:var(--ok)}
+.sd .in{padding:0 15px 14px;border-top:1px solid var(--line)}
+.sd table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px;margin-top:10px}
+.sd th{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);font-weight:400;text-align:right;padding:4px 6px}
+.sd td{text-align:right;padding:6px;border-top:1px solid var(--line)}
+.sd th:first-child,.sd td:first-child{text-align:left}
+.sd td.neg{color:var(--info)} .sd td.pos{color:var(--warn)}
+.sd ul{list-style:none;margin:10px 0 0;padding:0;font-family:var(--mono);font-size:12.5px;color:var(--text-2)}
+.sd li{display:flex;gap:10px;padding:3px 0}
+.sd li span:first-child{flex:1}
+.sdsum{display:flex;gap:18px;flex-wrap:wrap;font-family:var(--mono);font-size:13px;color:var(--text-2);margin-bottom:4px}
+.sdsum b{color:var(--text)}
 
 /* Zeitbuchungs-Auswahl */
 .pvhd{display:flex;align-items:center;gap:9px;margin-top:14px;font-family:var(--mono);font-size:11px;
@@ -329,6 +354,7 @@ footer.site .f-r{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-widt
   .tools{margin-top:18px}
   .grid{grid-template-columns:1fr;gap:10px}
   .form{grid-template-columns:1fr}
+  .form .row{gap:10px}
   .d-acts{margin-left:0;width:100%}
   .sums{max-width:none}
   .pos .amt{font-size:12.5px}
@@ -485,6 +511,7 @@ html[data-theme="light"]{
     </div>
     <span class="selwrap"><select id="cSel" aria-label="Auftraggeber"></select></span>
     <span class="selwrap"><select id="jSel" aria-label="Jahr"></select></span>
+    <button class="pill" id="saldenBtn" type="button">Salden</button>
     <button class="pill primary" id="newRech" type="button">+ Rechnung</button>
     <span class="count" id="count"></span>
   </section>
@@ -511,16 +538,22 @@ html[data-theme="light"]{
       <label class="wide">Name auf der Rechnung<input name="eName" maxlength="160" autocomplete="off"></label>
       <label class="wide">Zusatz / z. Hd.<input name="eZusatz" maxlength="160" autocomplete="off"></label>
       <label class="wide">Straße und Nummer<input name="eStrasse" maxlength="160" autocomplete="off"></label>
-      <label>PLZ<input name="ePlz" maxlength="12" autocomplete="off"></label>
-      <label>Ort<input name="eOrt" maxlength="90" autocomplete="off"></label>
-      <label>Land (ISO)<input name="eLand" maxlength="2" autocomplete="off" placeholder="DE" style="text-transform:uppercase"></label>
+      <div class="row r3">
+        <label>PLZ<input name="ePlz" maxlength="12" autocomplete="off"></label>
+        <label>Ort<input name="eOrt" maxlength="90" autocomplete="off"></label>
+        <label>Land<input name="eLand" maxlength="2" autocomplete="off" placeholder="DE" style="text-transform:uppercase"></label>
+      </div>
       <label>USt-IdNr. des Empfängers<input name="eUstId" maxlength="20" autocomplete="off" placeholder="z. B. ATU12345678"></label>
 
       <h5>Rechnung</h5>
-      <label>Rechnungsdatum<input name="datum" type="date" required></label>
-      <label>Zahlungsziel (Tage)<input name="ziel" type="number" min="0" max="180" step="1" inputmode="numeric"></label>
-      <label>Leistung von<input name="lVon" type="date"></label>
-      <label>Leistung bis<input name="lBis" type="date"></label>
+      <div class="row r2">
+        <label>Rechnungsdatum<input name="datum" type="date" required></label>
+        <label>Zahlungsziel (Tage)<input name="ziel" type="number" min="0" max="180" step="1" inputmode="numeric"></label>
+      </div>
+      <div class="row r2">
+        <label>Leistung von<input name="lVon" type="date"></label>
+        <label>Leistung bis<input name="lBis" type="date"></label>
+      </div>
       <label>Leitweg-ID<input name="leitweg" maxlength="60" autocomplete="off" placeholder="nur bei öffentlichen Auftraggebern"></label>
       <label>Bestell- / Referenznummer<input name="bestell" maxlength="60" autocomplete="off"></label>
 
@@ -541,6 +574,17 @@ html[data-theme="light"]{
     <button class="pill primary" type="submit">Speichern</button>
   </footer>
 </form></dialog>
+
+<!-- Salden je Auftraggeber -->
+<dialog id="dlgSalden"><div class="sheet">
+  <header><h3>Salden je Auftraggeber</h3><button class="pill icon-btn sm" type="button" data-close aria-label="Schließen">✕</button></header>
+  <div class="body">
+    <div class="sdsum" id="sdSum"></div>
+    <label class="rowlab" style="margin:8px 0 2px"><input type="checkbox" id="sdNurDiff" checked> Ausgeglichene Auftraggeber ausblenden</label>
+    <div id="sdList"></div>
+  </div>
+  <footer><button class="pill" type="button" data-close>Schließen</button></footer>
+</div></dialog>
 
 <!-- Position -->
 <dialog id="dlgPos"><form class="sheet" method="dialog" id="formPos">
@@ -1999,6 +2043,63 @@ function naechsteNummer(datum){
     jahr, n };
 }
 
+/* ═══════ Salden je Auftraggeber ═══════
+   Saldo = berechnet (festgeschriebene Rechnungen inkl. Stornos) − erhaltene Zahlungen.
+   Positiv: noch offen. Negativ: zu viel bezahlt. So gleicht eine Mehrzahlung
+   eine spätere Rechnung aus – und eine Minderzahlung bleibt als Rest stehen. */
+function salden(){
+  const m = new Map();
+  store.rechnungen.filter(r => r.festgeschrieben).forEach(r => {
+    const key = r.agbId ? String(r.agbId) : 'n:' + (r.empf.name || '');
+    const c = clientOf(r.agbId);
+    const g = m.get(key) || { key, name: (c && c.name) || r.empf.name || 'Ohne Auftraggeber',
+      brutto:0, bezahlt:0, saldo:0, monate:new Map(), rechnungen:[] };
+    const sm = summe(r);
+    const mon = ym => g.monate.get(ym) || (g.monate.set(ym, { ym, soll:0, ist:0 }), g.monate.get(ym));
+    const a = mon(r.datum.slice(0,7)); a.soll = cent(a.soll + sm.brutto);
+    r.zahlungen.forEach(z => { const b = mon(z.datum.slice(0,7)); b.ist = cent(b.ist + z.betrag); });
+    g.brutto = cent(g.brutto + sm.brutto); g.bezahlt = cent(g.bezahlt + sm.bezahlt);
+    if (Math.abs(sm.rest) > 0.005 && !r.storniert) g.rechnungen.push({ nr:r.nummer, rest:sm.rest, datum:r.datum });
+    m.set(key, g);
+  });
+  return [...m.values()].map(g => {
+    g.saldo = cent(g.brutto - g.bezahlt);
+    let kum = 0;
+    g.monateL = [...g.monate.values()].sort((a,b) => a.ym.localeCompare(b.ym))
+      .map(x => (kum = cent(kum + x.soll - x.ist), Object.assign(x, { kum }))).reverse();
+    return g;
+  }).sort((a,b) => Math.abs(b.saldo) - Math.abs(a.saldo) || a.name.localeCompare(b.name, 'de'));
+}
+function monatsName(ym){
+  const [j, mo] = ym.split('-');
+  return ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'][+mo - 1] + ' ' + j;
+}
+function renderSalden(){
+  const alle = salden(), nur = $('#sdNurDiff').checked;
+  const offen = alle.reduce((s,g) => g.saldo > 0.005 ? cent(s + g.saldo) : s, 0);
+  const guth = alle.reduce((s,g) => g.saldo < -0.005 ? cent(s - g.saldo) : s, 0);
+  $('#sdSum').innerHTML = '<span>Offen gesamt <b>' + eur.format(offen) + '</b></span>'
+    + '<span>Zu viel bezahlt gesamt <b>' + eur.format(guth) + '</b></span>';
+  const view = alle.filter(g => !nur || Math.abs(g.saldo) > 0.005);
+  $('#sdList').innerHTML = view.length ? view.map(g => {
+    const k = g.saldo > 0.005 ? ['off', eur.format(g.saldo) + ' offen']
+      : g.saldo < -0.005 ? ['zuv', eur.format(-g.saldo) + ' zu viel bezahlt'] : ['ok', 'ausgeglichen'];
+    return '<details class="sd"><summary><span class="nm">' + esc(g.name)
+      + '<small>berechnet ' + eur.format(g.brutto) + ' · bezahlt ' + eur.format(g.bezahlt) + '</small></span>'
+      + '<span class="sal ' + k[0] + '">' + k[1] + '</span></summary><div class="in">'
+      + '<table><thead><tr><th>Monat</th><th>Berechnet</th><th>Bezahlt</th><th>Saldo kumuliert</th></tr></thead><tbody>'
+      + g.monateL.map(x => '<tr><td>' + monatsName(x.ym) + '</td><td>' + eur.format(x.soll) + '</td><td>' + eur.format(x.ist)
+        + '</td><td class="' + (x.kum > 0.005 ? 'pos' : x.kum < -0.005 ? 'neg' : '') + '">' + eur.format(x.kum) + '</td></tr>').join('')
+      + '</tbody></table>'
+      + (g.rechnungen.length ? '<ul>' + g.rechnungen.sort((a,b) => a.datum.localeCompare(b.datum)).map(x =>
+          '<li><span>' + esc(x.nr) + ' · ' + fmtDate(x.datum) + '</span><span>'
+          + (x.rest > 0 ? eur.format(x.rest) + ' offen' : eur.format(-x.rest) + ' zu viel') + '</span></li>').join('') + '</ul>' : '')
+      + '</div></details>';
+  }).join('') : '<p class="hint">' + (alle.length ? 'Alle Auftraggeber sind ausgeglichen.' : 'Noch keine festgeschriebene Rechnung.') + '</p>';
+}
+$('#saldenBtn').addEventListener('click', () => { renderSalden(); $('#dlgSalden').showModal(); });
+$('#sdNurDiff').addEventListener('change', renderSalden);
+
 /* ═══════ Ansicht ═══════ */
 let filter = 'offen', query = '', clientF = '', jahrF = '', selId = null;
 let LISTE = [];
@@ -2052,6 +2153,7 @@ function cardHTML(r){
   if (z === 'ueberfaellig') tags.push('<span class="tag late">' + Math.abs(tage(s.faellig, heute())) + ' T über</span>');
   else if (['offen','teilbezahlt'].includes(z)) tags.push('<span class="tag' + (tage(s.faellig, heute()) <= 7 ? ' due' : '') + '">fällig ' + fmtDate(s.faellig) + '</span>');
   if (z === 'teilbezahlt') tags.push('<span class="tag due">' + eurK.format(s.bezahlt) + ' erhalten</span>');
+  if (r.festgeschrieben && !r.storniert && s.rest < -0.005) tags.push('<span class="tag info">' + eur.format(-s.rest) + ' zu viel bezahlt</span>');
   if (r.steuerfall === 'rc') tags.push('<span class="tag info">Reverse Charge</span>');
   if (r.steuerfall === 'klein') tags.push('<span class="tag">§ 19</span>');
   if (r.leitweg) tags.push('<span class="tag info">Leitweg</span>');
@@ -2077,6 +2179,11 @@ function renderGrid(){
   const off = view.reduce((s,r) => (r.festgeschrieben && !r.storniert) ? cent(s + summe(r).rest) : s, 0);
   $('#count').textContent = view.length + ' von ' + store.rechnungen.length + ' Rechnungen'
     + (off > 0.005 ? ' · ' + eur.format(off) + ' offen' : '');
+  if (clientF) {
+    const sd = salden().find(x => x.key === clientF);
+    if (sd) $('#count').textContent += sd.saldo > 0.005 ? ' · Saldo: ' + eur.format(sd.saldo) + ' offen'
+      : sd.saldo < -0.005 ? ' · Saldo: ' + eur.format(-sd.saldo) + ' zu viel bezahlt' : ' · Saldo ausgeglichen';
+  }
   $$('#grid .rcard').forEach(el => {
     const go = () => { selId = selId === el.dataset.id ? null : el.dataset.id; renderGrid(); renderDetail(true); };
     el.addEventListener('click', go);
@@ -2130,7 +2237,7 @@ function renderDetail(scroll){
     + '<div class="dstat"><dt>Offen</dt><dd><span class="big" style="color:' + (s.rest <= 0.005 ? 'var(--ok)' : z === 'ueberfaellig' ? 'var(--bad)' : 'inherit') + '">'
       + eur.format(s.rest) + '</span>'
       + '<div class="of' + (z === 'ueberfaellig' ? ' late' : '') + '">' + (fest
-        ? (s.rest <= 0.005 ? 'vollständig beglichen'
+        ? (s.rest < -0.005 ? 'zu viel bezahlt: ' + eur.format(-s.rest) + ' Guthaben' : s.rest <= 0.005 ? 'vollständig beglichen'
           : 'fällig ' + fmtDate(s.faellig) + (s.faellig < heute() ? ' · ' + Math.abs(tage(s.faellig, heute())) + ' T über' : ''))
         : 'noch nicht festgeschrieben') + '</div></dd></div>'
     + '<div class="dstat"><dt>Umfang</dt><dd><span class="big">' + r.positionen.length + '</span>'
@@ -2171,7 +2278,7 @@ function renderDetail(scroll){
         : '<div><span>' + (r.steuerfall === 'klein' ? 'ohne USt nach § 19 UStG' : 'Steuerschuld beim Empfänger') + '</span><b>—</b></div>')
     + '<div class="tot"><span>Rechnungsbetrag</span><b>' + eur.format(s.brutto) + '</b></div>'
     + (s.bezahlt ? '<div><span>abzüglich Zahlungen</span><b>− ' + eur.format(s.bezahlt) + '</b></div>' : '')
-    + (fest && s.bezahlt ? '<div class="rest' + (s.rest <= 0.005 ? ' ok' : '') + '"><span>noch offen</span><b>' + eur.format(s.rest) + '</b></div>' : '')
+    + (fest && s.bezahlt ? '<div class="rest' + (s.rest <= 0.005 ? ' ok' : '') + '"><span>' + (s.rest < -0.005 ? 'zu viel bezahlt (Guthaben)' : 'noch offen') + '</span><b>' + eur.format(s.rest) + '</b></div>' : '')
     + '</div>'
 
     + (r.zahlungen.length ? '<h4 class="sechd">Zahlungseingänge <span class="opt">' + r.zahlungen.length + '</span></h4>'
@@ -2213,6 +2320,11 @@ function renderDetail(scroll){
 }
 
 /* ═══════ Rechnungskopf ═══════ */
+/* Datumsfelder: Auswahl gilt sofort – Fokus abgeben, damit der Picker ohne extra Bestätigung schließt. */
+document.addEventListener('change', ev => {
+  const t = ev.target;
+  if (t && t.tagName === 'INPUT' && t.type === 'date' && t.value) setTimeout(() => t.blur(), 0);
+});
 $$('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('dialog').close()));
 
 function fuelleAuf(aufId){
@@ -2242,6 +2354,12 @@ $('#rAuf').addEventListener('change', () => {
   if (o && o.auftraggeberId && $('#rAgb').value !== String(o.auftraggeberId)) {
     $('#rAgb').value = String(o.auftraggeberId); fuelleAuf(o.id);
   }
+});
+
+/* „Leistung von" ändern: „bis" zieht mit, wenn es leer ist oder vor dem neuen Beginn läge. */
+$('#formRech').elements.lVon.addEventListener('change', () => {
+  const E = $('#formRech').elements;
+  if (E.lVon.value && (!E.lBis.value || E.lBis.value < E.lVon.value)) E.lBis.value = E.lVon.value;
 });
 
 let editRech = null;
