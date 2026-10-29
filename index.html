@@ -398,6 +398,15 @@ html[data-theme="light"] .wipe{mix-blend-mode:multiply}
 .bil.net .v.pos{color:var(--ok)} .bil.net .v.neg{color:var(--bad)}
 @media (max-width:760px){ .bilanz{grid-template-columns:1fr} .bil.net{min-width:0} }
 
+.bdet{margin-top:6px;font-size:12.5px}
+.bdet summary{cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.04em;color:var(--text-2)}
+.btab{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11.5px;margin-top:6px}
+.btab th{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3);font-weight:400;text-align:right;padding:3px 5px}
+.btab td{text-align:right;padding:4px 5px;border-top:1px solid var(--line);color:var(--text-2);vertical-align:top}
+.btab th:nth-child(-n+2),.btab td:nth-child(-n+2){text-align:left}
+.btab td:nth-child(2){font-family:var(--display);font-size:12.5px;color:var(--text)}
+.btab .ok{color:var(--ok)} .btab .teil{color:var(--warn)} .btab .off{color:var(--text-3)}
+
 /* Salden je Auftraggeber */
 .sd{border:1px solid var(--line);border-radius:14px;background:var(--glass);margin-top:10px;overflow:hidden}
 .sd summary{display:flex;align-items:center;gap:12px;padding:12px 15px;cursor:pointer;list-style:none;flex-wrap:wrap}
@@ -875,10 +884,10 @@ html[data-theme="light"]{
     <div class="pvhd">
       <span>Verdichten</span>
       <div class="ofilter" id="verd">
-        <button type="button" data-v="auftrag" aria-pressed="true">je Auftrag</button>
+        <button type="button" data-v="auftrag" aria-pressed="false">je Auftrag</button>
         <button type="button" data-v="taetigkeit" aria-pressed="false">je Tätigkeit</button>
         <button type="button" data-v="tag" aria-pressed="false">je Tag</button>
-        <button type="button" data-v="einzel" aria-pressed="false">einzeln</button>
+        <button type="button" data-v="einzeln" aria-pressed="true">jede Buchung einzeln</button>
       </div>
     </div>
     <div class="pvhd"><span id="zCount">Vorschau</span><button class="pill sm" type="button" id="zAll">Alle umschalten</button></div>
@@ -1534,6 +1543,7 @@ html[data-theme="light"]{
   }
   document.addEventListener('click', abfangen, true);
   document.addEventListener('submit', abfangen, true);
+  document.addEventListener('dragstart', abfangen, true);
 
   function dialogAuf() {
     if (!cfg || !global.WBLizenz) return;
@@ -1686,7 +1696,11 @@ WBTor({
     '#editHead', '#festBtn', '#zahlBtn', '#stornoBtn', '#delBtn',
     '#addZeit', '#addFrei', '#addPausch', '#addAusl', '#delPos',
     '#formRech', '#formPos', '#formZeit', '#formZahl', '#formSet',
-    '[data-ep]', '[data-up]', '[data-dz]'
+    '[data-ep]', '[data-up]', '[data-dz]', '[data-split]', '[data-vk]',
+    /* Eingang, Zahlungen, Stundenzettel */
+    '#einNeu', '#szBtn', '#einDel', '#postenDel', '[data-pneu]', '[data-plink]', '[data-pedit]', '[data-lk]',
+    '[data-ez]', '[data-ee]', '[data-edz]', '[data-ev]', '[data-eauto]', '[data-drag]',
+    '#formEin', '#formEinZ', '#formPosten', '#formSZ'
   ].join(','),
 
   /* Wege nach draußen — nur im Schaufenster gesperrt */
@@ -1893,7 +1907,8 @@ function normPos(p){
   return { id:String(p.id || uid()), art:ARTEN.includes(p.art) ? p.art : 'frei', text:t,
     menge:cent(num(p.menge) ?? 1), einheit:EINH.includes(p.einheit) ? p.einheit : 'Std.',
     preis:cent(num(p.preis) ?? 0), satz:num(p.satz) ?? 0, notiz:String(p.notiz || ''),
-    quellen:Array.isArray(p.quellen) ? p.quellen.map(String) : [] };
+    quellen:Array.isArray(p.quellen) ? p.quellen.map(String) : [],
+    buchungen:Array.isArray(p.buchungen) ? p.buchungen.map(normDet).filter(Boolean) : [] };
 }
 function normRech(r){
   if (!r || !r.id) return null;
@@ -1933,6 +1948,7 @@ function normEin(e){
     std: num(e.std) ? cent(num(e.std)) : 0, satz: num(e.satz) ?? 0, ustSatz: num(e.ustSatz) ?? 0,
     lVon: dd(e.lVon), lBis: dd(e.lBis), keys: Array.isArray(e.keys) ? e.keys.map(String) : [],
     quelle: String(e.quelle || ''),
+    buchungen: Array.isArray(e.buchungen) ? e.buchungen.map(x => { const d = normDet(x); if (d) d.satz = num(x.satz) ?? (num(e.satz) ?? 0); return d; }).filter(Boolean) : [],
     angelegt:String(e.angelegt || new Date().toISOString()) };
 }
 /* Zahlungsposten: eine Zahlung so, wie sie auf dem Konto steht – unabhängig von Rechnungen.
@@ -2274,10 +2290,31 @@ function buchungen(){
     const fa = feldVon(o,'auf'), fg = feldVon(o,'agb'), fn = feldVon(o,'notiz'), fs = feldVon(o,'satz'), fl = feldVon(o,'label');
     const b = { aufId: fa && o[fa] != null && o[fa] !== '' ? String(o[fa]) : null, agbId: fg && o[fg] != null && o[fg] !== '' ? String(o[fg]) : null, label: fl ? String(o[fl]) : '',
       aufTxt: String(o.auftrag ?? o.auftragname ?? o.projekt ?? ''), agbTxt: String(o.auftraggeber ?? o.kunde ?? ''),
-      ts: zeitpunktVon(o), h: stundenVon(o), satz: fs ? num(o[fs]) : null, notiz: fn ? String(o[fn]) : '' };
+      ts: zeitpunktVon(o), h: stundenVon(o), satz: fs ? num(o[fs]) : null, notiz: fn ? String(o[fn]) : '', ende: endeVon(o) };
     b.key = bKey(b);
     return b;
   }).filter(b => b.ts && b.h > 0);
+}
+function endeVon(o){
+  const f = feldVon(o,'ende'); if (!f || o[f] == null || o[f] === '') return null;
+  const d = new Date(typeof o[f] === 'number' ? o[f] : o[f]); return isNaN(d) ? null : d;
+}
+const hhmm = d => d ? String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0') : '';
+/* Eine Buchung als kleiner Nachweis: Datum, Uhrzeit, Stunden, Tätigkeit. */
+const bDetail = b => {
+  const mitZeit = b.ts && (b.ts.getHours() || b.ts.getMinutes());
+  return { key:b.key, d:iso(b.ts), von: mitZeit ? hhmm(b.ts) : '', bis: b.ende ? hhmm(b.ende) : '', h:cent(b.h), notiz:b.notiz || '' };
+};
+function normDet(x){
+  if (!x || !x.d) return null;
+  return { key:String(x.key || ''), d:String(x.d).slice(0,10), von:String(x.von || ''), bis:String(x.bis || ''), h:cent(num(x.h) ?? 0), notiz:String(x.notiz || '') };
+}
+const detZeit = x => fmtDate(x.d) + (x.von ? ' · ' + x.von + (x.bis ? '–' + x.bis : '') : '');
+function detTabelle(list, satz, extra){
+  return '<table class="btab"><thead><tr><th>Datum</th><th>Tätigkeit</th><th>Std.</th>' + (satz != null ? '<th>Betrag</th>' : '') + (extra ? '<th>' + extra.kopf + '</th>' : '') + '</tr></thead><tbody>'
+    + list.map((x, i) => '<tr><td>' + detZeit(x) + '</td><td>' + esc(x.notiz || '–') + '</td><td>' + dec1.format(x.h) + '</td>'
+      + (satz != null ? '<td>' + eur.format(cent(x.h * satz)) + '</td>' : '') + (extra ? '<td>' + extra.zelle(x, i) + '</td>' : '') + '</tr>').join('')
+    + '</tbody></table>';
 }
 
 /* ═══════ Rechnen ═══════ */
@@ -2515,6 +2552,7 @@ function renderEin(){
                   + (e.std - g > 0.005 ? ' · offen <b style="color:var(--warn)">' + dec1.format(cent(e.std - g)) + ' Std.</b>' : '') + '</small>'; })() : '')
             + '</span>'
             + '<span class="a ' + st[0] + '">' + st[1] + '</span>'
+            + (e.buchungen.length ? '<div class="pz" style="display:block;padding-left:0">' + szBuchungsDeckung(e) + '</div>' : '')
             + (e.zahlungen.some(verrInfo) ? '<div class="pz" style="flex-wrap:wrap;gap:6px">' + verrTags(e.zahlungen).join('') + '</div>' : '')
             + '<button class="pill sm" type="button" data-ez="' + esc(e.id) + '">+ Zahlung</button>'
             + '<button class="pill icon-btn sm" type="button" data-ee="' + esc(e.id) + '" aria-label="Bearbeiten">✎</button>'
@@ -3062,7 +3100,7 @@ function szBuchungen(objs){
     const fn = feldVon(o,'notiz'), fs = feldVon(o,'satz'), fl = feldVon(o,'label'), fa = feldVon(o,'auf');
     const b = { aufId: fa && o[fa] ? String(o[fa]) : null, ts: zeitpunktVon(o), h: stundenVon(o), satz: fs ? num(o[fs]) : null,
       notiz: fn ? String(o[fn]) : '', label: fl ? String(o[fl]) : String(o.auftrag ?? o.projekt ?? ''),
-      agbTxt: String(o.auftraggeber ?? o.kunde ?? '') };
+      agbTxt: String(o.auftraggeber ?? o.kunde ?? ''), ende: endeVon(o) };
     b.key = bKey(b); return b;
   }).filter(b => b.ts && b.h > 0);
 }
@@ -3107,10 +3145,10 @@ function szPlan(){
   const grp = new Map();
   neu.forEach(b => {
     const k = E.gruppe.value === 'gesamt' ? 'gesamt' : iso(b.ts).slice(0,7);
-    const g = grp.get(k) || { k, h:0, netto:0, keys:[], von:iso(b.ts), bis:iso(b.ts), ohneSatz:0 };
+    const g = grp.get(k) || { k, h:0, netto:0, keys:[], det:[], von:iso(b.ts), bis:iso(b.ts), ohneSatz:0 };
     const sz = b.satz ?? satz;
     if (sz == null) g.ohneSatz++;
-    g.h += b.h; g.netto = cent(g.netto + cent(b.h * (sz ?? 0))); g.keys.push(b.key);
+    g.h += b.h; g.netto = cent(g.netto + cent(b.h * (sz ?? 0))); g.keys.push(b.key); g.det.push(Object.assign(bDetail(b), { satz:sz ?? 0 }));
     if (iso(b.ts) < g.von) g.von = iso(b.ts); if (iso(b.ts) > g.bis) g.bis = iso(b.ts);
     grp.set(k, g);
   });
@@ -3148,7 +3186,7 @@ $('#formSZ').addEventListener('submit', ev => {
     if (g.ziel) {
       const e = g.ziel;
       e.std = cent(e.std + g.h); e.betrag = cent(e.betrag + g.brutto); e.ust = cent(e.ust + g.ust);
-      e.keys.push(...g.keys); if (g.von < e.lVon) e.lVon = g.von; if (g.bis > e.lBis) e.lBis = g.bis;
+      e.keys.push(...g.keys); e.buchungen.push(...g.det); if (g.von < e.lVon) e.lVon = g.von; if (g.bis > e.lBis) e.lBis = g.bis;
       e.satz = P.satz ?? e.satz;
       e.text = 'Stundenzettel · ' + dec1.format(e.std) + ' Std.' + (e.satz ? ' × ' + eur.format(e.satz) : '');
       return;
@@ -3159,7 +3197,7 @@ $('#formSZ').addEventListener('submit', ev => {
     let nr = 'SZ ' + (g.k === 'gesamt' ? g.von.slice(0,7) + '…' + g.bis.slice(0,7) : g.k), n = 2;
     while (store.eingang.some(x => x.lieferant.toLowerCase() === P.lief.toLowerCase() && x.nummer === nr)) nr = nr.replace(/ #\d+$/, '') + ' #' + (n++);
     store.eingang.push(normEin({ id:uid(), lieferant:P.lief, nummer:nr, datum, faellig:plus(datum, ziel),
-      betrag:g.brutto, ust:g.ust, ustSatz:P.ust, std:g.h, satz:P.satz ?? 0, lVon:g.von, lBis:g.bis, keys:g.keys,
+      betrag:g.brutto, ust:g.ust, ustSatz:P.ust, std:g.h, satz:P.satz ?? 0, lVon:g.von, lBis:g.bis, keys:g.keys, buchungen:g.det,
       quelle:'stundenzettel', text:'Stundenzettel · ' + dec1.format(g.h) + ' Std.' + (P.satz ? ' × ' + eur.format(P.satz) : ''), zahlungen:[] }));
   });
   const n = autoZuordnen(P.lief.toLowerCase());
@@ -3168,6 +3206,22 @@ $('#formSZ').addEventListener('submit', ev => {
   toast(P.liste.length + (E.gruppe.value === 'gesamt' ? ' Abrechnung' : ' Monat' + (P.liste.length === 1 ? '' : 'e')) + ' übernommen'
     + (n ? ' · ' + eur.format(n) + ' vorhandene Überweisungen angerechnet' : ''));
 });
+
+/* Jede Buchung eines Stundenzettels einzeln: was ist durch Zahlungen gedeckt?
+   Gedeckt wird chronologisch – die älteste Buchung zuerst. */
+function szBuchungsDeckung(e){
+  const f = 1 + (e.ustSatz || 0) / 100;
+  let topf = einBez(e);
+  const list = e.buchungen.slice().sort((a,b) => (a.d + a.von).localeCompare(b.d + b.von));
+  const st = list.map(x => { const brutto = cent(x.h * (x.satz || e.satz) * f), g = cent(Math.max(0, Math.min(brutto, topf)));
+    topf = cent(topf - g); return { brutto, g }; });
+  const n = st.filter(x => x.brutto - x.g <= 0.005).length;
+  return '<details class="bdet"><summary>' + list.length + (list.length === 1 ? ' Buchung · ' : ' Buchungen · ') + n + ' gedeckt' + (n < list.length ? ' · ' + (list.length - n) + ' offen' : '') + '</summary>'
+    + detTabelle(list, null, { kopf:'Brutto / gedeckt', zelle:(x, i) => { const s = st[i];
+        return eur.format(s.brutto) + ' · ' + (s.brutto - s.g <= 0.005 ? '<span class="ok">gedeckt</span>'
+          : s.g > 0.005 ? '<span class="teil">' + eur.format(s.g) + ' gedeckt</span>' : '<span class="off">offen</span>'); } })
+    + '</details>';
+}
 
 /* Freie Überweisungen eines Dienstleisters auf seine offenen Rechnungen verteilen – älteste zuerst. */
 function autoZuordnen(key){
@@ -3351,9 +3405,12 @@ function renderDetail(scroll){
           + '<span class="tx"><b>' + esc(p.text) + '</b><span class="sub">'
           + '<span>' + mengeFmt(p) + ' ' + esc(p.einheit) + ' × ' + eur.format(p.preis) + '</span>'
           + (r.steuerfall === 'regel' ? '<span>' + dec1.format(p.satz) + ' % USt</span>' : '')
-          + (p.quellen.length ? '<span>' + p.quellen.length + ' Buchungen</span>' : '')
+          + (p.quellen.length && p.quellen.length !== p.buchungen.length ? '<span>' + p.quellen.length + ' Buchung' + (p.quellen.length === 1 ? '' : 'en') + '</span>' : '')
           + (p.notiz ? '<span style="opacity:.8">' + esc(p.notiz) + '</span>' : '')
-          + '</span></span>'
+          + '</span>'
+          + (p.buchungen.length > 1 ? '<details class="bdet"><summary>' + p.buchungen.length + ' Buchungen</summary>' + detTabelle(p.buchungen, p.preis) + '</details>' : '')
+          + (!fest && p.quellen.length > 1 ? '<button class="pill sm" type="button" data-split="' + esc(p.id) + '" style="margin-top:6px">⇲ in einzelne Buchungen aufteilen</button>' : '')
+          + '</span>'
           + '<span class="amt">' + eur.format(zeile) + '</span>'
           + (fest ? '' : '<span class="acts">'
               + '<button class="pill icon-btn sm" type="button" data-ep="' + esc(p.id) + '" aria-label="Bearbeiten">✎</button>'
@@ -3400,6 +3457,7 @@ function renderDetail(scroll){
   on('#addPausch', () => posDlg(null, 'pauschal'));
   on('#addAusl', () => posDlg(null, 'auslage'));
   $$('#detail [data-ep]').forEach(b => b.addEventListener('click', () => posDlg(b.dataset.ep)));
+  $$('#detail [data-split]').forEach(b => b.addEventListener('click', () => aufteilen(r, b.dataset.split)));
   $$('#detail [data-up]').forEach(b => b.addEventListener('click', () => {
     const i = r.positionen.findIndex(p => p.id === b.dataset.up);
     if (i > 0) { const t = r.positionen[i-1]; r.positionen[i-1] = r.positionen[i]; r.positionen[i] = t; save(); neu(); }
@@ -3563,8 +3621,29 @@ $('#delPos').addEventListener('click', () => {
   $('#dlgPos').close(); save(); neu(); toast('Position gelöscht');
 });
 
+/* Eine verdichtete Zeitposition in je eine Position pro Buchung zerlegen.
+   Details kommen aus der Position selbst oder – bei älteren Positionen – aus der Zeitquelle. */
+function aufteilen(r, pid){
+  if (!r || r.festgeschrieben) return;
+  const i = r.positionen.findIndex(x => x.id === pid); if (i < 0) return;
+  const p = r.positionen[i];
+  let det = p.buchungen.length === p.quellen.length ? p.buchungen : [];
+  if (!det.length) { ladeZeit(); const m = new Map(buchungen().map(b => [b.key, b])); det = p.quellen.map(k => m.get(k)).filter(Boolean).map(bDetail); }
+  if (det.length !== p.quellen.length) {
+    toast('Nur ' + det.length + ' von ' + p.quellen.length + ' Buchungen sind in der Zeitquelle noch zu finden – Aufteilen nicht möglich. Position löschen und Zeit neu übernehmen.');
+    return;
+  }
+  const neu_ = det.slice().sort((a,b) => (a.d + a.von).localeCompare(b.d + b.von)).map(x => ({ id:uid(), art:'zeit',
+    text: x.notiz || p.text, menge:x.h, einheit:p.einheit, preis:p.preis, satz:p.satz, notiz:detZeit(x), quellen:[x.key], buchungen:[x] }));
+  const vorher = cent(p.menge * p.preis), nachher = neu_.reduce((s,x) => cent(s + cent(x.menge * x.preis)), 0);
+  r.positionen.splice(i, 1, ...neu_);
+  save(); neu();
+  toast('In ' + neu_.length + ' Positionen aufgeteilt' + (Math.abs(vorher - nachher) > 0.005 ? ' · Rundung: ' + eur.format(nachher - vorher) : ''));
+}
+
 /* ── Zeit übernehmen ── */
-let zVerd = 'auftrag', zItems = [], zStat = null;
+let zVerd = 'einzeln', zItems = [], zStat = null;
+try { const v = localStorage.getItem('rb-zverd'); if (['auftrag','taetigkeit','tag','einzel','einzeln'].includes(v)) zVerd = v === 'einzel' ? 'einzeln' : v; } catch(e){}
 function zeitVorschlag(){
   const r = aktRech(); if (!r) return [];
   const norm = t => String(t || '').trim().toLowerCase().replace(/\s+/g, ' ');
@@ -3603,9 +3682,9 @@ function zeitVorschlag(){
     : zVerd === 'tag' ? iso(b.ts) : b.key;
   alle.sort((a,b) => a.ts - b.ts).forEach(b => {
     const k = key(b);
-    if (!grp.has(k)) grp.set(k, { k, h:0, quellen:[], satz:null, von:iso(b.ts), bis:iso(b.ts), notizen:new Set(), dup:false });
+    if (!grp.has(k)) grp.set(k, { k, h:0, quellen:[], det:[], satz:null, von:iso(b.ts), bis:iso(b.ts), notizen:new Set(), dup:false });
     const g = grp.get(k);
-    g.h += b.h; g.quellen.push(b.key);
+    g.h += b.h; g.quellen.push(b.key); g.det.push(bDetail(b));
     if (b.notiz) g.notizen.add(b.notiz);
     const d = iso(b.ts);
     if (d < g.von) g.von = d; if (d > g.bis) g.bis = d;
@@ -3618,12 +3697,12 @@ function zeitVorschlag(){
     const text = zVerd === 'auftrag' ? (o ? o.name : 'Leistungen')
       : zVerd === 'taetigkeit' ? g.k
       : zVerd === 'tag' ? (o ? o.name : 'Leistungen') + ' – ' + fmtDate(g.k)
-      : (notiz[0] || (o ? o.name : 'Leistung')) + ' – ' + fmtDate(g.von);
-    return { text, h:cent(g.h), satz:cent(g.satz != null ? g.satz : satz), quellen:g.quellen,
+      : (notiz[0] || (o ? o.name : 'Leistung'));
+    return { text, h:cent(g.h), satz:cent(g.satz != null ? g.satz : satz), quellen:g.quellen, det:g.det,
       von:g.von, bis:g.bis, dup:dupN > 0, dupN,
       notiz: zVerd === 'auftrag' ? (g.von === g.bis ? fmtDate(g.von) : fmtDate(g.von) + ' – ' + fmtDate(g.bis))
         : zVerd === 'tag' ? notiz.slice(0, 3).join(', ')
-        : zVerd === 'taetigkeit' ? (g.von === g.bis ? fmtDate(g.von) : fmtDate(g.von) + ' – ' + fmtDate(g.bis)) : '',
+        : zVerd === 'taetigkeit' ? (g.von === g.bis ? fmtDate(g.von) : fmtDate(g.von) + ' – ' + fmtDate(g.bis)) : detZeit(g.det[0]),
       an: dupN === 0 };
   }).filter(x => x.h > 0.004);
 }
@@ -3640,7 +3719,9 @@ function zRender(){
     + '<span>' + i.quellen.length + ' Buchung' + (i.quellen.length === 1 ? '' : 'en') + '</span>'
     + (i.notiz ? '<span style="opacity:.8">' + esc(i.notiz) + '</span>' : '')
     + (i.dup ? '<span style="color:var(--bad)">' + i.dupN + '× schon abgerechnet</span>' : '')
-    + '</span></span>'
+    + '</span>'
+    + (i.det.length > 1 ? '<details class="bdet"><summary>' + i.det.length + ' Buchungen ansehen</summary>' + detTabelle(i.det, i.satz) + '</details>' : '')
+    + '</span>'
     + '<span class="amt">' + eur.format(cent(i.h * i.satz)) + '</span></div>').join('')
     : '<p class="hint">Für diesen Auftrag sind keine Zeitbuchungen gefunden worden.'
       + (zStat ? '<br>Von ' + zStat.gesamt + ' Buchungen gehören ' + zStat.auftrag + ' zu diesem Auftrag'
@@ -3654,11 +3735,13 @@ function zeitDlg(){
   $('#zeitBox').innerHTML = 'Quelle: <b>' + esc(quelleTxt) + '</b>'
     + (r.aufId ? ' · gefiltert auf <b>' + esc(r.aufName || r.aufId) + '</b>' : r.agbId ? ' · gefiltert auf den Auftraggeber' : ' · <b>ohne Auftrag</b> lässt sich nicht filtern – wähle im Kopf einen Auftrag')
     + (r.lVon || r.lBis ? ' · Leistungszeitraum ' + (r.lVon ? fmtDate(r.lVon) : '…') + ' – ' + (r.lBis ? fmtDate(r.lBis) : '…') : '');
+  $$('#verd button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.v === zVerd)));
   zItems = zeitVorschlag(); zRender();
   $('#dlgZeit').showModal();
 }
 $$('#verd button').forEach(b => b.addEventListener('click', () => {
   zVerd = b.dataset.v;
+  try { localStorage.setItem('rb-zverd', zVerd); } catch(e){}
   $$('#verd button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.v === zVerd)));
   zItems = zeitVorschlag(); zRender();
 }));
@@ -3672,7 +3755,7 @@ $('#formZeit').addEventListener('submit', ev => {
   if (!nehmen.length) { ev.preventDefault(); $('#errZeit').textContent = 'Es ist nichts ausgewählt.'; $('#errZeit').hidden = false; return; }
   nehmen.forEach(i => {
     r.positionen.push({ id:uid(), art:'zeit', text:i.text, menge:cent(i.h), einheit:'Std.',
-      preis:cent(i.satz), satz:r.satz, notiz:i.notiz, quellen:i.quellen });
+      preis:cent(i.satz), satz:r.satz, notiz:i.notiz, quellen:i.quellen, buchungen:i.det });
     i.quellen.forEach(k => store.abgerechnet[k] = r.id);
   });
   if (!r.lVon || !r.lBis) {
