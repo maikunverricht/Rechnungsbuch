@@ -598,6 +598,146 @@ html[data-theme="light"]{
   .blob{filter:blur(48px)}
   .bg i{filter:blur(38px)}
 }
+
+/* ═══════ Geldband, Liste links, Rechnung rechts (seit 21.11.2026) ═══════ */
+html,body{overflow-x:clip}
+.head{padding:calc(80px + env(safe-area-inset-top)) 0 0}
+.head .kpis{display:none}
+#dock{display:none}
+/* Geldband */
+.bilanz{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:14px;margin-top:4px}
+.bilanz .bil{position:relative;overflow:hidden;border-radius:24px;padding:18px 20px;text-align:left;font:inherit;color:var(--text);cursor:pointer;
+  background:var(--glass);border:1px solid var(--glass-edge);backdrop-filter:blur(24px) saturate(1.35);-webkit-backdrop-filter:blur(24px) saturate(1.35);box-shadow:var(--shadow);
+  display:flex;flex-direction:column;gap:6px;transition:transform var(--t-m) var(--kurve),border-color var(--t-s)}
+.bilanz .bil::before{content:"";position:absolute;width:300px;height:300px;right:-120px;top:-150px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,color-mix(in srgb,var(--bc) 30%,transparent),transparent 66%)}
+.bilanz button.bil:hover{transform:translateY(-2px)}
+.bilanz .bil[aria-current="true"]{border-color:color-mix(in srgb,var(--bc) 60%,transparent)}
+.bilanz .k{position:relative;font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-3)}
+.bilanz .v{position:relative;font-size:clamp(30px,3.4vw,44px);font-weight:800;font-variation-settings:'wdth' 118;letter-spacing:-.03em;line-height:1.05}
+.bilanz .v.pos{color:var(--ok)}
+.bilanz .sub{position:relative;font-size:13px;color:var(--text-2)}
+.bilanz .sub .late{color:var(--bad);font-weight:600}
+.rb-stapel{position:relative;display:flex;gap:3px;height:12px;margin-top:6px;border-radius:8px;overflow:hidden;background:color-mix(in srgb,var(--text-3) 16%,transparent)}
+.rb-stapel i{height:100%;border-radius:4px;background:var(--c)}
+.rb-leg{position:relative;display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--text-2)}
+.rb-leg span{white-space:nowrap}
+.rb-leg span::before{content:"";display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;background:var(--c)}
+.rb-monate{position:relative;display:flex;align-items:flex-end;gap:5px;height:46px;margin-top:6px}
+.rb-monate i{flex:1;min-height:3px;border-radius:4px 4px 2px 2px;background:color-mix(in srgb,var(--ok) 30%,transparent)}
+.rb-monate i.jetzt{background:linear-gradient(180deg,var(--ok),color-mix(in srgb,var(--ok) 40%,transparent));box-shadow:0 0 14px -2px var(--ok)}
+
+/* Richtung */
+.rb-richtung{display:grid;grid-template-columns:1fr 1fr;padding:4px;margin-bottom:10px;border-radius:16px;background:var(--film);border:1px solid var(--line)}
+.rb-richtung button{height:40px;border:0;border-radius:12px;background:none;color:var(--text-2);font:inherit;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.rb-richtung button.an{background:var(--text);color:var(--void);font-weight:600}
+.rb-richtung svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#einView > .rb-richtung{max-width:360px;margin-top:18px}
+
+/* Fläche */
+.rb-flaeche{display:grid;grid-template-columns:370px minmax(0,1fr);gap:18px;align-items:start;margin-top:18px}
+.rb-liste{position:sticky;top:84px;max-height:calc(100vh - 100px);overflow:auto;border-radius:26px;padding:14px;background:var(--glass);border:1px solid var(--glass-edge);
+  backdrop-filter:blur(24px) saturate(1.35);-webkit-backdrop-filter:blur(24px) saturate(1.35);box-shadow:var(--shadow);scrollbar-width:thin}
+.rb-liste .tools{margin:0;gap:8px}
+.rb-liste .search{flex:1 1 100%;min-width:0}
+.rb-liste .seg{flex:1 1 100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.rb-liste .seg button{flex:1 0 auto;padding:0 9px;font-size:13px}
+.rb-liste .selwrap{flex:1 1 calc(50% - 4px);min-width:0}.rb-liste .selwrap select{width:100%}
+.rb-liste #saldenBtn{flex:1}.rb-liste #newRech{flex:1}
+.rb-liste .count{flex-basis:100%;text-align:left;margin:0}
+.rb-liste .grid{display:flex;flex-direction:column;gap:4px;margin-top:10px}
+.rb-liste .ptray{margin:12px 0 0}
+.rb-liste .rcard{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px;border-radius:16px;border:1px solid transparent;background:none;box-shadow:none;
+  min-height:0;transform:none;transition:background var(--t-s),border-color var(--t-s),transform var(--t-m) var(--kurve)}
+.rb-liste .rcard::before,.rb-liste .rcard::after{display:none}
+.rb-liste .rcard:hover{background:var(--film);transform:translateX(2px)}
+.rb-liste .rcard[aria-current="true"]{background:color-mix(in srgb,var(--acc) 12%,transparent);border-color:color-mix(in srgb,var(--acc) 45%,transparent)}
+.rb-ring{--p:0;position:relative;width:40px;height:40px}
+.rb-ring::before{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(var(--acc) calc(var(--p)*1%),color-mix(in srgb,var(--text-3) 22%,transparent) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px))}
+.rb-ring span{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--mono);font-size:10px;color:var(--text-2)}
+.rb-rz{min-width:0}.rb-rz b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rb-rz small{display:block;font-family:var(--mono);font-size:11px;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rb-rb{text-align:right;font-family:var(--mono);font-size:14px;font-weight:500;white-space:nowrap}
+.rb-rb small{display:block;font-size:11px;font-weight:400;color:var(--text-3)}
+.rb-rb small.late{color:var(--bad)}
+
+/* Rechnung rechts */
+.rb-flaeche .detail{margin:0;padding:0;border:0;background:none;box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none;animation:rbRein .45s var(--kurve)}
+@keyframes rbRein{from{opacity:0;transform:translateY(10px)}}
+.rb-karte{position:relative;border-radius:28px;padding:22px 24px;background:var(--glass);border:1px solid var(--glass-edge);overflow:hidden;
+  backdrop-filter:blur(24px) saturate(1.35);-webkit-backdrop-filter:blur(24px) saturate(1.35);box-shadow:var(--shadow)}
+.rb-karte + .rb-karte,.rb-papier + .rb-karte{margin-top:16px}
+.rb-karte.kopf::before{content:"";position:absolute;width:520px;height:520px;right:-180px;top:-260px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,color-mix(in srgb,var(--acc) 30%,transparent),transparent 65%)}
+.rb-karte .d-head{position:relative}
+.rb-karte .d-head h2{font-size:clamp(26px,3vw,38px);font-weight:800;font-variation-settings:'wdth' 116;letter-spacing:-.03em;line-height:1.05;margin:8px 0 4px}
+.rb-st{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-radius:999px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  background:color-mix(in srgb,var(--acc) 16%,transparent);color:var(--acc);border:1px solid color-mix(in srgb,var(--acc) 45%,transparent)}
+.rb-st i{width:7px;height:7px;border-radius:50%;background:var(--acc);box-shadow:0 0 10px var(--acc)}
+.rb-weg{position:relative;display:grid;grid-template-columns:repeat(3,1fr);margin-top:22px}
+.rb-weg::before{content:"";position:absolute;left:16.6%;right:16.6%;top:13px;height:3px;border-radius:3px;background:color-mix(in srgb,var(--text-3) 22%,transparent)}
+.rb-weg .fort{position:absolute;left:16.6%;top:13px;height:3px;border-radius:3px;background:linear-gradient(90deg,var(--ok),var(--acc));box-shadow:0 0 12px var(--acc)}
+.rb-wp{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text-3);text-align:center}
+.rb-wp i{width:28px;height:28px;border-radius:50%;background:var(--void);border:3px solid color-mix(in srgb,var(--text-3) 40%,transparent)}
+.rb-wp.ok i{background:var(--ok);border-color:var(--ok)}
+.rb-wp.jetzt{color:var(--text)}.rb-wp.jetzt i{background:var(--acc);border-color:var(--acc);box-shadow:0 0 0 6px color-mix(in srgb,var(--acc) 20%,transparent),0 0 20px var(--acc)}
+.rb-wp em{font-style:normal;color:var(--text-2);letter-spacing:0;text-transform:none}
+.rb-zahlen{position:relative;display:grid;grid-template-columns:auto repeat(3,minmax(0,1fr));gap:12px;align-items:center;margin-top:22px}
+.rb-frist{--p:0;position:relative;width:120px;height:120px}
+.rb-frist .rg{position:absolute;inset:0;border-radius:50%;background:conic-gradient(var(--acc) calc(var(--p)*1%),color-mix(in srgb,var(--text-3) 18%,transparent) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 10px),#000 calc(100% - 9px));mask:radial-gradient(farthest-side,transparent calc(100% - 10px),#000 calc(100% - 9px));
+  filter:drop-shadow(0 0 10px color-mix(in srgb,var(--acc) 45%,transparent))}
+.rb-frist .in{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:0 14px}
+.rb-frist b{font-size:26px;font-weight:800;font-variation-settings:'wdth' 116;line-height:1}
+.rb-frist small{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-3);margin-top:3px}
+.rb-zk{padding:12px 14px;border-radius:16px;background:var(--film);border:1px solid var(--line);min-width:0}
+.rb-zk small{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-3)}
+.rb-zk b{display:block;margin-top:4px;font-size:21px;font-weight:800;font-variation-settings:'wdth' 114;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rb-zk span{display:block;font-size:11px;color:var(--text-3);margin-top:2px}
+.rb-karte .warnbox{position:relative;margin-top:14px}
+
+/* Die Rechnung als Blatt */
+.rb-papier{position:relative;margin-top:18px;border-radius:14px;background:#fbfaf7;color:#1a1f27;padding:36px 42px 30px;
+  box-shadow:0 40px 80px -40px rgba(0,0,0,.8),0 2px 0 rgba(0,0,0,.05);transform:perspective(1600px) rotateX(1.6deg);transform-origin:top center;transition:transform .6s var(--kurve)}
+.rb-papier:hover{transform:none}
+.rb-papier{--text:#1a1f27;--text-2:#4a5563;--text-3:#7a8493;--line:#e6e3dc;--film:rgba(17,25,35,.04);--glass:transparent}
+.rb-stempel{position:absolute;right:38px;top:118px;transform:rotate(-14deg);padding:6px 14px;border:3px solid currentColor;border-radius:8px;font-family:var(--mono);font-weight:700;
+  font-size:18px;letter-spacing:.14em;text-transform:uppercase;opacity:.72;pointer-events:none}
+.rb-stempel.rot{color:#D9443F}.rb-stempel.ok{color:#1E8D79}.rb-stempel.grau{color:#8a93a0}
+.rb-pk{display:flex;justify-content:space-between;gap:20px;align-items:flex-start}
+.rb-pm{display:flex;align-items:center;gap:10px;font-weight:800;font-size:15px}
+.rb-pm svg{width:22px;height:24px}
+.rb-pa{font-size:11px;color:#5a6270;text-align:right;line-height:1.5}
+.rb-pe{margin-top:24px;font-size:13px;line-height:1.5}
+.rb-pe small{display:block;font-size:10px;color:#8a93a0;text-decoration:underline;margin-bottom:4px}
+.rb-pt{display:flex;justify-content:space-between;align-items:baseline;gap:12px;margin-top:24px;padding-bottom:10px;border-bottom:2px solid #1a1f27;flex-wrap:wrap}
+.rb-pt h3{margin:0;font-size:22px;font-weight:800;font-variation-settings:'wdth' 112}
+.rb-pt span{font-family:var(--mono);font-size:12px;color:#5a6270}
+.rb-papier .sechd{color:#1a1f27;margin-top:14px}
+.rb-papier .posbox{border:0;background:none;padding:0}
+.rb-papier .pos{border-color:#eeebe4}
+.rb-papier .pos .amt{color:#1a1f27}
+.rb-papier .sums{margin-left:auto;max-width:340px;background:none;border:0}
+.rb-papier .sums .tot{border-top:2px solid #1a1f27}
+.rb-papier .pill{color:#1a1f27;border-color:#d9d5cc;background:#fff}
+.rb-papier .hint{color:#7a8493}
+
+@media (max-width:980px){
+  .bilanz{grid-template-columns:1fr}.bilanz .bil:nth-child(n+2){display:none}
+  .rb-flaeche{grid-template-columns:minmax(0,1fr)}
+  .rb-liste{position:static;max-height:none;overflow:visible}
+  .rb-liste .grid{flex-direction:row;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:4px}
+  .rb-liste .rcard{flex:none;width:280px;scroll-snap-align:start;border-color:var(--line)}
+  .rb-zahlen{grid-template-columns:1fr 1fr}.rb-frist{grid-row:span 2;margin:0 auto}
+  .rb-karte{padding:18px;border-radius:22px}
+  .rb-papier{padding:24px 18px;transform:none}.rb-pa{display:none}
+  .rb-stempel{top:70px;right:14px;font-size:14px}
+  .rb-wp{font-size:9px;letter-spacing:.04em}
+  .head{padding-top:calc(70px + env(safe-area-inset-top))}
+}
+@media (min-width:981px){.rb-flaeche #closeD{display:none}}
+@media (prefers-reduced-motion:reduce){.rb-flaeche .detail{animation:none}.rb-papier{transform:none}}
+.toast:not(.show){opacity:0;pointer-events:none}
 </style>
 </head>
 <body>
@@ -620,16 +760,15 @@ html[data-theme="light"]{
 
 <main>
   <section class="head">
-    <div>
-      <div class="eyebrow">Rechnungen · Offene Posten</div>
-      <h1><span>Das</span> <em>Rechnungsbuch.</em></h1>
-    </div>
     <div class="kpis" id="kpis"></div>
   </section>
 
   <section class="bilanz" id="bilanz" aria-label="Offene Posten in beide Richtungen"></section>
 
   <div id="ausView">
+  <div class="rb-flaeche">
+  <aside class="rb-liste" aria-label="Rechnungen">
+  <div class="rb-richtung" role="group" aria-label="Richtung"><button type="button" data-rv="aus"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg>Ausgang</button><button type="button" data-rv="ein"><svg viewBox="0 0 24 24"><path d="M17 7 7 17M15 17H7V9"/></svg>Eingang</button></div>
   <section class="tools" aria-label="Filter">
     <div class="search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
@@ -649,12 +788,15 @@ html[data-theme="light"]{
     <span class="count" id="count"></span>
   </section>
 
-  <section class="ptray" id="trayAus" aria-label="Zahlungseingänge"></section>
   <section class="grid" id="grid"></section>
+  <section class="ptray" id="trayAus" aria-label="Zahlungseingänge"></section>
+  </aside>
   <section class="detail" id="detail" aria-live="polite" hidden></section>
+  </div>
   </div>
 
   <div id="einView" hidden>
+    <div class="rb-richtung" role="group" aria-label="Richtung"><button type="button" data-rv="aus"><svg viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></svg>Ausgang</button><button type="button" data-rv="ein"><svg viewBox="0 0 24 24"><path d="M17 7 7 17M15 17H7V9"/></svg>Eingang</button></div>
     <section class="tools" aria-label="Eingangsrechnungen">
       <label class="rowlab"><input type="checkbox" id="einNur" checked> Nur offene und Abweichungen zeigen</label>
       <button class="pill" id="szBtn" type="button" style="margin-left:auto" title="Stundenzettel (z. B. Stempeluhr-Export, JSON oder CSV) als Eingangsrechnung einlesen">⇪ Stundenzettel einlesen</button>
@@ -2579,6 +2721,7 @@ function setView(v){
   renderKPIs();
   if (VIEW === 'ein') renderEin();
   renderBilanz();
+  $$('[data-rv]').forEach(x => x.classList.toggle('an', x.dataset.rv === VIEW));
 }
 /* ───────── Ansicht wählen: Meniskus-Dock wie im Kontor ───────── */
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -3041,24 +3184,36 @@ function renderBilanz(){
       + (x.length > 4 ? '<li><span>+ ' + (x.length - 4) + ' weitere</span><span></span></li>' : '') + '</ul>';
   };
   const netto = cent(fordern - gutK - (schulden - gutL));
+  /* Seit 21.11.2026 ein Geldband: wer schuldet wie viel (je Kunde ein Balken),
+     was ich schulde, und der Umsatz des Jahres als Monatssäulen. */
+  const FARB = ['var(--warn)','var(--info)','var(--ok)','var(--accent2)','var(--text-3)'];
+  const posA = aus.filter(g => g.saldo > 0.005).sort((x, y) => y.saldo - x.saldo);
+  const spaetJe = {}; store.rechnungen.filter(r => r.festgeschrieben && zustand(r) === 'ueberfaellig').forEach(r => { const k = r.agbId || r.empf.name; spaetJe[k] = (spaetJe[k] || 0) + summe(r).rest; });
+  const balken = (fordern > 0.005 ? '<span class="rb-stapel">' + posA.slice(0, 5).map((g, i) => '<i style="width:' + (g.saldo / fordern * 100) + '%;--c:' + (spaetJe[g.key] ? 'var(--bad)' : FARB[i]) + '"></i>').join('') + '</span>'
+    + '<span class="rb-leg">' + posA.slice(0, 4).map((g, i) => '<span style="--c:' + (spaetJe[g.key] ? 'var(--bad)' : FARB[i]) + '">' + esc(g.name) + (spaetJe[g.key] ? ' · überfällig' : '') + '</span>').join('') + '</span>' : '');
+  const jahr = h.slice(0, 4), mon = Array(12).fill(0);
+  store.rechnungen.filter(r => r.festgeschrieben && r.datum.slice(0, 4) === jahr).forEach(r => { mon[+r.datum.slice(5, 7) - 1] = cent(mon[+r.datum.slice(5, 7) - 1] + summe(r).netto); });
+  const jSum = mon.reduce((x, y) => x + y, 0), mMax = Math.max(1, ...mon), mJetzt = +h.slice(5, 7) - 1;
   el.innerHTML =
-      '<button type="button" class="bil" data-bv="aus" style="--bc:#E0A21F" aria-current="' + (VIEW === 'aus') + '">'
-    + '<span class="k"><i></i>Kunden schulden mir</span><span class="v">' + eur.format(fordern) + '</span>'
-    + '<span class="sub">' + (spaetA > 0.005 ? '<span class="late">' + eur.format(spaetA) + ' überfällig</span>' : '<span>nichts überfällig</span>')
-    + (gutK > 0.005 ? '<span>' + eur.format(gutK) + ' zu viel erhalten</span>' : '') + '</span>' + liste(aus) + '</button>'
-    + '<button type="button" class="bil" data-bv="ein" style="--bc:#3F6FCB" aria-current="' + (VIEW === 'ein') + '">'
-    + '<span class="k"><i></i>Ich schulde Dienstleistern</span><span class="v">' + eur.format(schulden) + '</span>'
-    + '<span class="sub">' + (spaetE > 0.005 ? '<span class="late">' + eur.format(spaetE) + ' überfällig</span>' : '<span>nichts überfällig</span>')
-    + (gutL > 0.005 ? '<span>' + eur.format(gutL) + ' zu viel überwiesen</span>' : '') + '</span>' + liste(ein) + '</button>'
-    + '<div class="bil net"><span class="k">Unterm Strich</span><span class="v ' + (netto > 0.005 ? 'pos' : netto < -0.005 ? 'neg' : '') + '">'
-    + (netto > 0.005 ? '+' : '') + eur.format(netto) + '</span><span class="sub"><span>' + (netto > 0.005 ? 'kommt noch herein' : netto < -0.005 ? 'geht noch hinaus' : 'ausgeglichen') + '</span></span>'
-    + '<span class="sub" style="color:var(--text-3)"><span>Forderungen − Schulden, Guthaben eingerechnet</span></span></div>';
+      '<button type="button" class="bil" data-bv="aus" style="--bc:var(--warn)" aria-current="' + (VIEW === 'aus') + '">'
+    + '<span class="k">Kunden schulden dir</span><span class="v">' + eurK.format(fordern) + '</span>'
+    + '<span class="sub">' + (spaetA > 0.005 ? '<span class="late">' + eurK.format(spaetA) + ' überfällig</span> · ' : '') + posA.length + (posA.length === 1 ? ' Kunde' : ' Kunden')
+    + (gutK > 0.005 ? ' · ' + eur.format(gutK) + ' zu viel erhalten' : '') + '</span>' + balken + '</button>'
+    + '<button type="button" class="bil" data-bv="ein" style="--bc:var(--info)" aria-current="' + (VIEW === 'ein') + '">'
+    + '<span class="k">Du schuldest</span><span class="v">' + eurK.format(schulden) + '</span>'
+    + '<span class="sub">' + (spaetE > 0.005 ? '<span class="late">' + eurK.format(spaetE) + ' überfällig</span>' : schulden > 0.005 ? 'nichts überfällig' : 'alles ausgeglichen')
+    + (gutL > 0.005 ? ' · ' + eur.format(gutL) + ' zu viel überwiesen' : '') + '</span>'
+    + '<span class="sub">Unterm Strich ' + (netto > 0.005 ? '+' : '') + eur.format(netto) + '</span></button>'
+    + '<div class="bil" style="--bc:var(--ok);cursor:default"><span class="k">Umsatz ' + jahr + ' · netto</span><span class="v">' + eurK.format(jSum) + '</span>'
+    + '<span class="rb-monate" aria-hidden="true">' + mon.map((v, i) => '<i class="' + (i === mJetzt ? 'jetzt' : '') + '" style="height:' + Math.max(4, v / mMax * 100) + '%" title="' + eur.format(v) + '"></i>').join('') + '</span></div>';
 }
 $('#bilanz').addEventListener('click', ev => {
   const b = ev.target.closest('[data-bv]'); if (!b) return;
-  const i = b.dataset.bv === 'ein' ? 1 : 0;
-  if (typeof Dock !== 'undefined') Dock.gehe(i); else setView(b.dataset.bv);
+  richtung(b.dataset.bv);
 });
+/* Seit 21.11.2026 fest in der Liste statt schwebend: Ausgang | Eingang. */
+function richtung(v){ setView(v); $$('[data-rv]').forEach(x => x.classList.toggle('an', x.dataset.rv === VIEW)); }
+document.addEventListener('click', ev => { const b = ev.target.closest('[data-rv]'); if (b) richtung(b.dataset.rv); });
 
 /* ═══════ Stundenzettel externer Dienstleister einlesen ═══════
    Liest dieselben Formate wie die Zeitquelle (Stempeluhr-JSON) und zusätzlich CSV.
@@ -3291,33 +3446,28 @@ function renderSelects(){
   $('#jSel').value = jahrF || '';
 }
 function cardHTML(r){
-  const s = summe(r), z = zustand(r), c = clientOf(r.agbId);
-  const tags = [];
-  if (z === 'ueberfaellig') tags.push('<span class="tag late">' + Math.abs(tage(s.faellig, heute())) + ' T über</span>');
-  else if (['offen','teilbezahlt'].includes(z)) tags.push('<span class="tag' + (tage(s.faellig, heute()) <= 7 ? ' due' : '') + '">fällig ' + fmtDate(s.faellig) + '</span>');
-  if (z === 'teilbezahlt') tags.push('<span class="tag due">' + eurK.format(s.bezahlt) + ' erhalten</span>');
-  if (r.festgeschrieben && !r.storniert && s.rest < -0.005) tags.push('<span class="tag info">' + eur.format(-s.rest) + ' zu viel bezahlt</span>');
-  tags.push(...verrTags(r.zahlungen));
-  if (r.steuerfall === 'rc') tags.push('<span class="tag info">Reverse Charge</span>');
-  if (r.steuerfall === 'klein') tags.push('<span class="tag">§ 19</span>');
-  if (r.leitweg) tags.push('<span class="tag info">Leitweg</span>');
+  /* Seit 21.11.2026 eine Zeile mit Fristring: wie viel vom Zahlungsziel schon verstrichen ist. */
+  const s = summe(r), z = zustand(r), c = clientOf(r.agbId), h = heute();
+  let p = 0, inn = '–';
+  if (z === 'bezahlt') { p = 100; inn = '✓'; }
+  else if (z === 'ueberfaellig') { p = 100; inn = '!'; }
+  else if (['offen','teilbezahlt'].includes(z)) { const ges = Math.max(1, tage(s.faellig, r.datum)), rest = tage(s.faellig, h); p = Math.round(Math.min(1, Math.max(0, (ges - rest) / ges)) * 100); inn = String(rest); }
+  else if (z === 'storniert' || z === 'storno') inn = '×';
+  const unter = z === 'ueberfaellig' ? '<small class="late">' + Math.abs(tage(s.faellig, h)) + ' T über</small>'
+    : ['offen','teilbezahlt'].includes(z) ? '<small>noch ' + tage(s.faellig, h) + ' T' + (z === 'teilbezahlt' ? ' · teilbezahlt' : '') + '</small>'
+    : '<small>' + ZTXT[z] + '</small>';
   const ziehbar = r.festgeschrieben && !r.storniert && !r.stornoVon && s.rest > 0.005;
   return '<article class="rcard" data-id="' + esc(r.id) + '"' + (ziehbar ? ' draggable="true" data-drag="aus:' + esc(r.id) + '"' : '') + ' style="--acc:' + ACC[z] + '" aria-current="' + (selId === r.id) + '" tabindex="0" role="button">'
-    + '<div class="rc-top"><div style="min-width:0;flex:1">'
-    + '<div class="rc-nr">' + esc(r.nummer || 'ohne Nummer') + '</div>'
-    + '<div class="rc-cl">' + esc(r.empf.name || (c ? c.name : 'Ohne Empfänger')) + '</div>'
-    + (c && r.empf.name && c.name !== r.empf.name ? '<div class="rc-auf" style="color:var(--text-3)">heute: ' + esc(c.name) + '</div>' : '')
-    + '<div class="rc-auf">' + esc(r.aufName || 'ohne Auftrag') + (r.projektnummer ? ' · ' + esc(r.projektnummer) : '') + '</div>'
-    + (r.lVon || r.lBis ? '<div class="rc-zr">◷ ' + zeitraumTxt(r.lVon, r.lBis) + '</div>' : '')
-    + '</div><span class="st" data-s="' + z + '"><i></i>' + ZTXT[z] + '</span></div>'
-    + '<div class="rc-sum"><b>' + eur.format(s.brutto) + '</b><span>' + (r.steuerfall === 'regel' ? eur.format(s.netto) + ' netto' : 'ohne USt') + '</span></div>'
-    + '<div class="rc-foot">' + tags.join('')
-    + '<span style="margin-left:auto">' + fmtDate(r.datum) + '</span></div></article>';
+    + '<span class="rb-ring" style="--p:' + p + '"><span>' + inn + '</span></span>'
+    + '<span class="rb-rz"><b>' + esc(r.empf.name || (c ? c.name : 'Ohne Empfänger')) + '</b><small>' + esc(r.nummer || 'ohne Nummer') + ' · ' + fmtDate(r.datum) + '</small></span>'
+    + '<span class="rb-rb">' + eur.format(z === 'bezahlt' || z === 'entwurf' ? s.brutto : s.rest > 0.005 ? s.rest : s.brutto) + unter + '</span></article>';
 }
+const breit = () => matchMedia('(min-width: 981px)').matches;
 function renderGrid(){
   LISTE = store.rechnungen.slice().sort((a,b) =>
     b.datum.localeCompare(a.datum) || String(b.nummer).localeCompare(String(a.nummer), 'de', { numeric:true }));
   const view = LISTE.filter(passt);
+  if (breit() && view.length && !view.some(r => r.id === selId)) { selId = view[0].id; queueMicrotask(() => renderDetail()); }
   $('#grid').innerHTML = view.length ? view.map(cardHTML).join('')
     : '<p class="hint solo" style="grid-column:1/-1">' + (store.rechnungen.length
         ? 'Keine Rechnung passt zu Filter und Suche.'
@@ -3331,7 +3481,7 @@ function renderGrid(){
       : sd.saldo < -0.005 ? ' · Saldo: ' + eur.format(-sd.saldo) + ' zu viel bezahlt' : ' · Saldo ausgeglichen';
   }
   $$('#grid .rcard').forEach(el => {
-    const go = () => { selId = selId === el.dataset.id ? null : el.dataset.id; renderGrid(); renderDetail(true); };
+    const go = () => { selId = selId === el.dataset.id && !breit() ? null : el.dataset.id; renderGrid(); renderDetail(true); };
     el.addEventListener('click', go);
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
   });
@@ -3348,11 +3498,23 @@ function renderDetail(scroll){
   const fest = !!r.festgeschrieben;
   const satzTxt = { regel:'Regelbesteuerung', klein:'Kleinunternehmer § 19 UStG', rc:'Reverse Charge' }[r.steuerfall];
 
+  const h0 = heute(), ab = r.absender || EIN().absender || {}, em = r.empf || {};
+  const schritt = z === 'entwurf' ? 0 : z === 'bezahlt' ? 2 : 1;
+  const weg = [['Entwurf', fest ? '' : 'jetzt'], ['Festgeschrieben', fest ? fmtDate(String(r.festgeschrieben).slice(0, 10)) : ''],
+    ['Bezahlt', z === 'bezahlt' && r.zahlungen.length ? fmtDate(r.zahlungen.map(x => x.datum).sort().pop()) : '']];
+  const ges = Math.max(1, tage(s.faellig, r.datum)), rest = tage(s.faellig, h0);
+  const fp = z === 'bezahlt' || z === 'ueberfaellig' ? 100 : fest ? Math.round(Math.min(1, Math.max(0, (ges - rest) / ges)) * 100) : 0;
+  const fIn = z === 'bezahlt' ? '<b>✓</b><small>bezahlt</small>' : !fest ? '<b>' + ges + '</b><small>Tage Ziel</small>'
+    : z === 'storniert' || z === 'storno' ? '<b>×</b><small>' + ZTXT[z] + '</small>'
+    : rest < 0 ? '<b>' + (-rest) + '</b><small>Tage über</small>' : '<b>' + rest + '</b><small>Tage bis fällig</small>';
+  const stempel = z === 'bezahlt' ? '<span class="rb-stempel ok">Bezahlt</span>' : z === 'ueberfaellig' ? '<span class="rb-stempel rot">Überfällig</span>'
+    : z === 'entwurf' ? '<span class="rb-stempel grau">Entwurf</span>' : z === 'storniert' ? '<span class="rb-stempel rot">Storniert</span>' : '';
   box.innerHTML =
-      '<div class="d-head"><div style="min-width:0">'
-    + '<div class="eyebrow">' + esc(r.nummer || 'Entwurf, noch ohne Nummer') + ' · ' + ZTXT[z] + '</div>'
-    + '<h2>' + esc(r.empf.name || (c ? c.name : 'Ohne Empfänger')) + '</h2>'
-    + '<div class="sub">' + esc(r.aufName || 'ohne Auftrag') + (r.projektnummer ? ' · ' + esc(r.projektnummer) : '')
+      '<section class="rb-karte kopf" style="--acc:' + ACC[z] + '">'
+    + '<div class="d-head"><div style="min-width:0">'
+    + '<span class="rb-st"><i></i>' + ZTXT[z] + '</span>'
+    + '<h2>' + esc(r.nummer || 'Entwurf') + '</h2>'
+    + '<div class="sub">' + esc(r.empf.name || (c ? c.name : 'Ohne Empfänger')) + ' · ' + esc(r.aufName || 'ohne Auftrag') + (r.projektnummer ? ' · ' + esc(r.projektnummer) : '')
     + ' · ' + fmtDate(r.datum) + ' · ' + satzTxt
     + (r.lVon || r.lBis ? ' · Leistung ' + (r.lVon ? fmtDate(r.lVon) : '') + (r.lBis ? ' – ' + fmtDate(r.lBis) : '') : '') + '</div></div>'
     + '<div class="d-acts">'
@@ -3375,7 +3537,19 @@ function renderDetail(scroll){
     + (r.storniert ? '<div class="warnbox"><b>Storniert.</b> Diese Rechnung wurde durch ' + esc(r.stornoDurch || 'eine Stornorechnung') + ' aufgehoben. Sie bleibt im Bestand stehen – gelöscht wird eine festgeschriebene Rechnung nie.</div>' : '')
     + (r.stornoVon ? '<div class="warnbox"><b>Stornorechnung</b> zu ' + esc(r.stornoVon) + '. Alle Beträge sind negativ.</div>' : '')
 
-    + '<dl class="dstats">'
+    + '<div class="rb-weg"><span class="fort" style="width:' + (schritt / 2 * 66.8) + '%"></span>' + weg.map(([n, e], i) => '<div class="rb-wp' + (i < schritt ? ' ok' : i === schritt ? ' jetzt' : '') + '"><i></i>' + n + '<em>' + e + '</em></div>').join('') + '</div>'
+    + '<div class="rb-zahlen"><div class="rb-frist" style="--p:' + fp + '"><span class="rg"></span><div class="in">' + fIn + '</div></div>'
+    + '<div class="rb-zk"><small>Brutto</small><b>' + eur.format(s.brutto) + '</b><span>' + eur.format(s.netto) + ' netto</span></div>'
+    + '<div class="rb-zk"><small>Erhalten</small><b>' + eur.format(s.bezahlt) + '</b><span>' + r.zahlungen.length + ' Zahlung' + (r.zahlungen.length === 1 ? '' : 'en') + '</span></div>'
+    + '<div class="rb-zk"><small>Offen</small><b style="color:' + (s.rest <= 0.005 ? 'var(--ok)' : z === 'ueberfaellig' ? 'var(--bad)' : 'inherit') + '">' + eur.format(fest ? s.rest : 0) + '</b><span>'
+      + (fest ? (s.rest < -0.005 ? 'Guthaben ' + eur.format(-s.rest) : s.rest <= 0.005 ? 'beglichen' : 'fällig ' + fmtDate(s.faellig)) : 'noch nicht festgeschrieben') + '</span></div></div>'
+    + '</section>'
+    + '<div class="rb-papier">' + stempel
+    + '<div class="rb-pk"><span class="rb-pm"><svg viewBox="15 5 90 102" aria-hidden="true"><path d="M26,16 V62 A34,34 0 0 0 94,62 V16" fill="none" stroke="#1a1f27" stroke-width="22" stroke-linecap="round"/><circle cx="60" cy="64" r="18.5" fill="#E0A21F"/></svg>' + esc(ab.name || 'Absender in den Einstellungen') + '</span>'
+    + '<span class="rb-pa">' + [ab.zusatz, [ab.strasse].filter(Boolean).join(''), [ab.plz, ab.ort].filter(Boolean).join(' ')].filter(Boolean).map(esc).join('<br>') + '</span></div>'
+    + '<div class="rb-pe"><small>' + esc([ab.name, ab.ort].filter(Boolean).join(' · ')) + '</small>' + [em.name, em.zusatz, em.strasse, [em.plz, em.ort].filter(Boolean).join(' ')].filter(Boolean).map(esc).join('<br>') + '</div>'
+    + '<div class="rb-pt"><h3>' + (r.stornoVon ? 'Stornorechnung ' : 'Rechnung ') + esc(r.nummer || '(Entwurf)') + '</h3><span>' + fmtDate(r.datum) + ' · ' + satzTxt + '</span></div>'
+    + '<dl class="dstats" hidden>'
     + '<div class="dstat"><dt>Brutto</dt><dd><span class="big">' + eur.format(s.brutto) + '</span>'
       + '<div class="of">' + eur.format(s.netto) + ' netto' + (s.steuer ? ' + ' + eur.format(s.steuer) + ' USt' : '') + '</div></dd></div>'
     + '<div class="dstat"><dt>Erhalten</dt><dd><span class="big">' + eur.format(s.bezahlt) + '</span>'
@@ -3428,7 +3602,8 @@ function renderDetail(scroll){
     + '<div class="tot"><span>Rechnungsbetrag</span><b>' + eur.format(s.brutto) + '</b></div>'
     + (s.bezahlt ? '<div><span>abzüglich Zahlungen</span><b>− ' + eur.format(s.bezahlt) + '</b></div>' : '')
     + (fest && s.bezahlt ? '<div class="rest' + (s.rest <= 0.005 ? ' ok' : '') + '"><span>' + (s.rest < -0.005 ? 'zu viel bezahlt (Guthaben)' : 'noch offen') + '</span><b>' + eur.format(s.rest) + '</b></div>' : '')
-    + '</div>'
+    + '</div></div>'
+    + '<section class="rb-karte">'
 
     + (r.zahlungen.length ? '<h4 class="sechd">Zahlungseingänge <span class="opt">' + r.zahlungen.length + '</span></h4>'
         + '<div class="zahlw">' + r.zahlungen.slice().sort((a,b) => a.datum.localeCompare(b.datum)).map(zz =>
@@ -3440,7 +3615,9 @@ function renderDetail(scroll){
 
     + (fest ? '<div class="warnbox" style="border-color:var(--line);background:var(--glass-2)">'
         + 'Festgeschrieben am ' + fmtDate(r.festgeschrieben) + '. Nummer, Empfänger, Positionen und Beträge sind ab hier eingefroren. '
-        + 'Änderungen gehen nur über eine <b>Stornorechnung</b> und eine neue Rechnung.</div>' : '');
+        + 'Änderungen gehen nur über eine <b>Stornorechnung</b> und eine neue Rechnung.</div>' : '')
+    + '</section>';
+  $$('#detail .rb-karte').forEach(k => { if (!k.classList.contains('kopf') && !k.textContent.trim()) k.remove(); });
 
   $('#closeD').addEventListener('click', () => { selId = null; renderGrid(); renderDetail(); });
   const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
@@ -3466,7 +3643,7 @@ function renderDetail(scroll){
     if (!confirm('Diesen Zahlungseingang löschen?')) return;
     r.zahlungen = r.zahlungen.filter(x => x.id !== b.dataset.dz); save(); neu();
   }));
-  if (scroll) box.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start' });
+  if (scroll && !breit()) box.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'start' });
 }
 
 /* ═══════ Rechnungskopf ═══════ */
